@@ -31,7 +31,7 @@
         <el-tooltip :content="collapsed ? '展开菜单' : '收起菜单'" placement="right">
           <el-button text :icon="collapsed ? Expand : Fold" @click="collapsed = !collapsed" />
         </el-tooltip>
-        <span v-if="!collapsed" class="shell__version">v0.1 · P2</span>
+        <span v-if="!collapsed" class="shell__version">v0.1 · P7</span>
       </div>
     </aside>
 

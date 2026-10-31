@@ -50,6 +50,12 @@ const routes = [
     meta: { title: '数据大屏', layout: 'screen', roles: ['ADMIN'] }
   },
   {
+    path: '/admin/audit',
+    name: 'AuditLog',
+    component: () => import('../views/admin/AuditLog.vue'),
+    meta: { title: '审计日志', layout: 'screen', roles: ['ADMIN'] }
+  },
+  {
     path: '/patient',
     name: 'PatientHome',
     component: () => import('../views/patient/PatientHome.vue'),
@@ -66,6 +72,54 @@ const routes = [
     name: 'ImportCenter',
     component: () => import('../views/researcher/ImportCenter.vue'),
     meta: { title: '数据导入', layout: 'sidebar', roles: ['RESEARCHER'] }
+  },
+  {
+    path: '/followups',
+    name: 'FollowUpList',
+    component: () => import('../views/doctor/FollowUpList.vue'),
+    meta: { title: '随访计划', layout: 'sidebar', roles: ['DOCTOR', 'RESEARCHER'] }
+  },
+  {
+    path: '/reviews',
+    name: 'ReviewBoard',
+    component: () => import('../views/doctor/ReviewBoard.vue'),
+    meta: { title: '待办复核', layout: 'sidebar', roles: ['DOCTOR', 'RESEARCHER'] }
+  },
+  {
+    path: '/admin/users',
+    name: 'UserAdmin',
+    component: () => import('../views/admin/UserAdmin.vue'),
+    meta: { title: '账号管理', layout: 'screen', roles: ['ADMIN'] }
+  },
+  {
+    path: '/reports',
+    name: 'ReportList',
+    component: () => import('../views/doctor/ReportList.vue'),
+    meta: { title: '评估报告', layout: 'sidebar', roles: ['DOCTOR', 'RESEARCHER'] }
+  },
+  {
+    path: '/graph',
+    name: 'GraphView',
+    component: () => import('../views/doctor/GraphView.vue'),
+    meta: { title: '因果图谱', layout: 'sidebar', roles: ['DOCTOR', 'RESEARCHER'] }
+  },
+  {
+    path: '/admin/system',
+    name: 'SystemSettings',
+    component: () => import('../views/admin/SystemSettings.vue'),
+    meta: { title: '系统设置', layout: 'screen', roles: ['ADMIN'] }
+  },
+  {
+    path: '/quality',
+    name: 'QcList',
+    component: () => import('../views/researcher/QcList.vue'),
+    meta: { title: '数据质控', layout: 'sidebar', roles: ['RESEARCHER', 'ADMIN'] }
+  },
+  {
+    path: '/tasks',
+    name: 'TaskList',
+    component: () => import('../views/researcher/TaskList.vue'),
+    meta: { title: '评估任务', layout: 'sidebar', roles: ['RESEARCHER', 'DOCTOR', 'ADMIN'] }
   },
   {
     path: '/:pathMatch(.*)*',

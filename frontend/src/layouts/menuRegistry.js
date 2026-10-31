@@ -26,15 +26,15 @@ import {
 export const MENU_REGISTRY = {
   subjects: { label: '受试者档案', path: '/subjects', icon: User, ready: true },
   imports: { label: '数据导入', path: '/imports', icon: UploadFilled, ready: true },
-  quality: { label: '数据质控', path: '/quality', icon: Checked, ready: false },
-  tasks: { label: '评估任务', path: '/tasks', icon: Cpu, ready: false },
-  reviews: { label: '业务复核', path: '/reviews', icon: ChatLineSquare, ready: false },
-  followups: { label: '随访计划', path: '/followups', icon: Timer, ready: false },
-  graph: { label: '因果图谱', path: '/graph', icon: Share, ready: false },
-  reports: { label: '评估报告', path: '/reports', icon: Document, ready: false },
-  audit: { label: '审计日志', path: '/audit', icon: Tickets, ready: false },
-  users: { label: '账号管理', path: '/users', icon: UserFilled, ready: false },
-  system: { label: '系统设置', path: '/system', icon: Setting, ready: false },
+  quality: { label: '数据质控', path: '/quality', icon: Checked, ready: true },
+  tasks: { label: '评估任务', path: '/tasks', icon: Cpu, ready: true },
+  reviews: { label: '业务复核', path: '/reviews', icon: ChatLineSquare, ready: true },
+  followups: { label: '随访计划', path: '/followups', icon: Timer, ready: true },
+  graph: { label: '因果图谱', path: '/graph', icon: Share, ready: true },
+  reports: { label: '评估报告', path: '/reports', icon: Document, ready: true },
+  audit: { label: '审计日志', path: '/admin/audit', icon: Tickets, ready: true },
+  users: { label: '账号管理', path: '/admin/users', icon: UserFilled, ready: true },
+  system: { label: '系统设置', path: '/admin/system', icon: Setting, ready: true },
   summary: { label: '我的摘要', path: '/summary', icon: Postcard, ready: false }
 }
 

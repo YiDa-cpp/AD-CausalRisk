@@ -48,7 +48,10 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-const navItems = computed(() => buildMenuItems(userStore.menus))
+const navItems = computed(() => [
+  { key: 'home', label: '数据大屏', path: '/admin', ready: true },
+  ...buildMenuItems(userStore.menus)
+])
 const active = computed(() => activeKeyOf(navItems.value, route.path))
 
 const clock = ref('')

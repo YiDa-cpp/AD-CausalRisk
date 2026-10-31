@@ -6,6 +6,9 @@
       </transition>
     </router-view>
   </component>
+
+  <!-- 批量评估进度面板：挂在 Shell 上，切页面也不丢 -->
+  <BatchProgressPanel />
 </template>
 
 <script setup>
@@ -16,6 +19,7 @@ import BlankLayout from './BlankLayout.vue'
 import PatientLayout from './PatientLayout.vue'
 import ScreenLayout from './ScreenLayout.vue'
 import SidebarLayout from './SidebarLayout.vue'
+import BatchProgressPanel from '@/components/assessment/BatchProgressPanel.vue'
 
 const LAYOUTS = {
   blank: BlankLayout,

@@ -10,3 +10,12 @@ import request from './request.js'
 export function listSubjects({ page = 1, pageSize = 20 } = {}) {
   return request.get('/subjects', { params: { page, pageSize } })
 }
+
+/**
+ * GET /api/subjects/{subjectId}
+ * 返回 SubjectDetail：{ subject, visits[], features[] }
+ * 访问不到时后端返回 403（存在但无权）或 400（不存在）。
+ */
+export function getSubjectDetail(subjectId) {
+  return request.get(`/subjects/${subjectId}`)
+}

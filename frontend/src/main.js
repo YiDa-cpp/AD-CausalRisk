@@ -8,7 +8,6 @@ import './styles/tokens.css'
 import './styles/element-overrides.css'
 import App from './App.vue'
 import router from './router'
-import { vPermission } from './directives/permission.js'
 
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
@@ -16,6 +15,5 @@ pinia.use(piniaPluginPersistedstate)
 const app = createApp(App)
 app.use(pinia)
 app.use(router)
-app.directive('permission', vPermission)
 
 app.mount('#app')

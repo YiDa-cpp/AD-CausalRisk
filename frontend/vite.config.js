@@ -3,6 +3,18 @@ import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { fileURLToPath, URL } from 'node:url'
+import { readFileSync } from 'node:fs'
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+const contract = JSON.parse(
+  readFileSync(new URL('../contracts/java-business.target.openapi.json', import.meta.url), 'utf8')
+)
+const httpMethods = new Set(['get', 'post', 'patch', 'put', 'delete'])
+const operationCount = Object.values(contract.paths).reduce(
+  (total, pathItem) => total + Object.keys(pathItem).filter((key) => httpMethods.has(key)).length,
+  0
+)
+const constOf = (schema, property) => contract.components.schemas?.[schema]?.properties?.[property]?.const ?? ''
 
 export default defineConfig({
   plugins: [
@@ -15,6 +27,18 @@ export default defineConfig({
       dts: false
     })
   ],
+  // 构建期常量：只把版本号这类标量注入，不把整份 OpenAPI 打进包。
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __CONTRACT_VERSION__: JSON.stringify(contract.info?.version ?? ''),
+    __CONTRACT_TITLE__: JSON.stringify(contract.info?.title ?? ''),
+    __CONTRACT_OPS__: JSON.stringify(operationCount),
+    __CONTRACT_PATHS__: JSON.stringify(Object.keys(contract.paths ?? {}).length),
+    __MODEL_VERSION__: JSON.stringify(constOf('AgentResult', 'modelVersion')),
+    __AGENT_CONTRACT_VERSION__: JSON.stringify(constOf('AgentResult', 'contractVersion')),
+    __WORKFLOW_VERSION__: JSON.stringify(constOf('AgentResult', 'workflowVersion'))
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
