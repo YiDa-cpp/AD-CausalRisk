@@ -2,7 +2,7 @@
   <div class="review-page">
     <PageHeader back title="待办复核" subtitle="按时间倒序展示评估结果，最新的在前。">
       <template #extra>
-        <el-radio-group v-model="filter" size="small">
+        <el-radio-group v-model="filter" size="small" @change="loadPage(1)">
           <el-radio-button label="ALL">全部</el-radio-button>
           <el-radio-button label="PENDING">待复核</el-radio-button>
         </el-radio-group>
@@ -28,13 +28,13 @@
       />
 
       <EmptyState
-        v-else-if="visibleItems.length === 0"
+        v-else-if="items.length === 0"
         :icon="Document"
         :title="filter === 'PENDING' ? '当前页没有待复核的评估' : '还没有评估结果'"
         description="研究员发起评估后，结果会自动出现在这里；也可以换一页看看。"
       />
 
-      <el-table v-else :data="visibleItems" class="table" row-key="assessmentId" @keydown.enter="onRowKeydown">
+      <el-table v-else :data="items" class="table" row-key="assessmentId" @keydown.enter="onRowKeydown">
         <el-table-column prop="assessmentId" label="评估 ID" width="100" />
         <el-table-column prop="subjectId" label="受试者" width="100" />
         <el-table-column label="风险概率" width="120">
@@ -184,12 +184,6 @@ const submitting = ref('')
 /** 列表请求序号：翻页/刷新竞态时只接受最新一次响应 */
 let requestSeq = 0
 
-const visibleItems = computed(() =>
-  filter.value === 'PENDING'
-    ? items.value.filter((item) => item.reviewStatus === 'PENDING')
-    : items.value
-)
-
 const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
   month: '2-digit',
   day: '2-digit',
@@ -226,7 +220,12 @@ async function loadPage(target = page.value) {
   loading.value = true
   loadError.value = ''
   try {
-    const data = await listAssessments({ page: target, pageSize: pageSize.value })
+    const data = await listAssessments({
+      page: target,
+      pageSize: pageSize.value,
+      // 服务端筛选：后端 /api/assessments 支持 reviewStatus / riskLevel / keyword 等
+      reviewStatus: filter.value === 'ALL' ? '' : filter.value
+    })
     if (seq !== requestSeq) return
     items.value = Array.isArray(data?.items) ? data.items : []
     total.value = Number(data?.total ?? items.value.length)
@@ -269,7 +268,7 @@ async function openReview(row) {
   }
 }
 
-const { onRowKeydown } = useTableKeyboard(visibleItems, openReview)
+const { onRowKeydown } = useTableKeyboard(items, openReview)
 
 useEscapeToClose(drawerOpen, () => {
   drawerOpen.value = false

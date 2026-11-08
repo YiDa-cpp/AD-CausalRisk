@@ -10,6 +10,24 @@ export function listFollowUps(subjectId) {
 }
 
 /**
+ * GET /api/follow-ups —— 跨受试者的服务端分页列表（BusinessQueryController）。
+ * 过滤：subjectId / status / due(overdue|today|next7) / from / to / page / pageSize。
+ * 返回 { items, page, pageSize, total }，item 含 subjectCode / subjectAlias / ownerName。
+ * 注意：PATIENT 调用会被拒绝（患者走 /api/patients/me/follow-up）。
+ */
+export function listFollowUpsPaged({
+  page = 1,
+  pageSize = 20,
+  due = '',
+  status = '',
+  subjectId = ''
+} = {}) {
+  return request.get('/follow-ups', {
+    params: { page, pageSize, due, status, subjectId }
+  })
+}
+
+/**
  * POST /api/follow-ups
  * body：{ subjectId, scheduledAt(ISO Instant), purpose }；status 可选，默认 PLANNED。
  */

@@ -7,8 +7,8 @@ import request from './request.js'
  * 所以关键词检索只能在当前页内做（见 views/doctor/PatientList.vue 的说明）。
  * 返回 PageSubject：{ items, page, pageSize, total }
  */
-export function listSubjects({ page = 1, pageSize = 20 } = {}) {
-  return request.get('/subjects', { params: { page, pageSize } })
+export function listSubjects({ page = 1, pageSize = 20, keyword = '' } = {}) {
+  return request.get('/subjects', { params: { page, pageSize, keyword } })
 }
 
 /**

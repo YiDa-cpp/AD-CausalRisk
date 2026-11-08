@@ -54,16 +54,33 @@ export function getAssessmentTask(taskId) {
  * GET /api/assessment-tasks —— 任务历史（分页，按 id 倒序）。
  * 每行是摘要（不含 stages），详情仍需 getAssessmentTask(taskId)。
  */
-export function listAssessmentTasks({ page = 1, pageSize = 20 } = {}) {
-  return request.get('/assessment-tasks', { params: { page, pageSize } })
+export function listAssessmentTasks({
+  page = 1,
+  pageSize = 20,
+  status = '',
+  subjectId = '',
+  keyword = ''
+} = {}) {
+  return request.get('/assessment-tasks', {
+    params: { page, pageSize, status, subjectId, keyword }
+  })
 }
 
 /**
  * GET /api/assessments —— 评估结果摘要（分页，按 id 倒序）。
  * 响应不含 agentResult：列表只需要 riskScore / riskLevel / reviewStatus 等标量。
  */
-export function listAssessments({ page = 1, pageSize = 20 } = {}) {
-  return request.get('/assessments', { params: { page, pageSize } })
+export function listAssessments({
+  page = 1,
+  pageSize = 20,
+  reviewStatus = '',
+  riskLevel = '',
+  keyword = '',
+  subjectId = ''
+} = {}) {
+  return request.get('/assessments', {
+    params: { page, pageSize, reviewStatus, riskLevel, keyword, subjectId }
+  })
 }
 
 /** GET /api/assessments/{assessmentId} —— 返回 Assessment（含 agentResult）。 */

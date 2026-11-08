@@ -8,3 +8,20 @@ import request from './request.js'
 export function listAuditLogs() {
   return request.get('/audit-logs')
 }
+
+/**
+ * GET /api/audit-logs/page —— 服务端分页与筛选（BusinessQueryController）。
+ * 过滤参数：eventType / actorId / traceId / keyword / from / to；data 为 { items, page, pageSize, total }。
+ * 注意这是新增的分页端点，老的 /audit-logs 仍返回数组。
+ */
+export function listAuditLogsPaged({
+  page = 1,
+  pageSize = 20,
+  eventType = '',
+  actorId = '',
+  keyword = ''
+} = {}) {
+  return request.get('/audit-logs/page', {
+    params: { page, pageSize, eventType, actorId, keyword }
+  })
+}

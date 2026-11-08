@@ -11,6 +11,19 @@
 
     <DataCard padding="none">
       <div class="filter">
+        <el-select
+          v-model="statusFilter"
+          class="filter__select"
+          size="small"
+          clearable
+          placeholder="任务状态"
+          @change="loadPage(1)"
+        >
+          <el-option label="已完成" value="COMPLETED" />
+          <el-option label="失败" value="FAILED" />
+          <el-option label="排队中" value="PENDING" />
+          <el-option label="进行中" value="RUNNING" />
+        </el-select>
         <span class="filter__count">共 {{ total }} 条 · 当前页 {{ items.length }} 条</span>
       </div>
 
@@ -152,6 +165,8 @@ const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const items = ref([])
+/** 服务端状态筛选（后端 /api/assessment-tasks 支持 status） */
+const statusFilter = ref('')
 
 const loading = ref(false)
 const firstLoading = ref(true)
@@ -200,7 +215,11 @@ async function loadPage(target = page.value) {
   loading.value = true
   loadError.value = ''
   try {
-    const data = await listAssessmentTasks({ page: target, pageSize: pageSize.value })
+    const data = await listAssessmentTasks({
+      page: target,
+      pageSize: pageSize.value,
+      status: statusFilter.value
+    })
     if (seq !== requestSeq) return
     items.value = Array.isArray(data?.items) ? data.items : []
     total.value = Number(data?.total ?? items.value.length)
@@ -296,8 +315,13 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--line);
+}
+
+.filter__select {
+  width: 160px;
 }
 
 .filter__count {

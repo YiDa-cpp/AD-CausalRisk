@@ -3,17 +3,19 @@
     <PageHeader back title="评估报告" subtitle="从评估列表选择一条，生成可打印的个体化报告。">
       <template #extra>
         <el-button :icon="Refresh" :loading="listLoading" @click="loadPage(page)">刷新</el-button>
-        <el-button :icon="Download" :disabled="visibleItems.length === 0" @click="exportCsv">
+        <el-button :icon="Download" :disabled="items.length === 0" @click="exportCsv">
           导出 CSV
         </el-button>
-        <el-button type="primary" :icon="Printer" :disabled="!report" @click="print">打印报告</el-button>
+        <el-button type="primary" :icon="Download" :disabled="!report" :loading="downloading" @click="download">
+          下载 PDF
+        </el-button>
       </template>
     </PageHeader>
 
     <!-- 列表：数据来自 GET /api/assessments（摘要，不含 agentResult） -->
     <DataCard class="no-print" padding="none">
       <div class="filter">
-        <el-radio-group v-model="filter" size="small">
+        <el-radio-group v-model="filter" size="small" @change="loadPage(1)">
           <el-radio-button label="ALL">全部</el-radio-button>
           <el-radio-button label="PENDING">待复核</el-radio-button>
           <el-radio-button label="ACKNOWLEDGED">已确认</el-radio-button>
@@ -33,13 +35,13 @@
       />
 
       <EmptyState
-        v-else-if="visibleItems.length === 0"
+        v-else-if="items.length === 0"
         :icon="Document"
         :title="filter === 'ALL' ? '还没有评估结果' : '当前页没有符合条件的评估'"
         description="研究员发起评估后，结果会自动出现在这里。"
       />
 
-      <el-table v-else :data="visibleItems" class="table" row-key="assessmentId" @row-click="selectReport" @keydown.enter="onRowKeydown">
+      <el-table v-else :data="items" class="table" row-key="assessmentId" @row-click="selectReport" @keydown.enter="onRowKeydown">
         <el-table-column prop="assessmentId" label="评估 ID" width="100" />
         <el-table-column prop="subjectId" label="受试者" width="100" />
         <el-table-column label="风险概率" width="120">
@@ -203,19 +205,23 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { Document, Download, Printer, Refresh, WarningFilled } from '@element-plus/icons-vue'
+import { Document, Download, Refresh, WarningFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DataCard from '@/components/common/DataCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import CausalGraph from '@/components/charts/CausalGraph.vue'
 import { listAssessments } from '@/api/assessments.js'
-import { getReport } from '@/api/reports.js'
+import { downloadReport, getReport } from '@/api/reports.js'
 import { getSubjectDetail } from '@/api/subjects.js'
 import { downloadCsv } from '@/utils/csv.js'
 import { useTableKeyboard } from '@/composables/useTableKeyboard.js'
+import { useUserStore } from '@/stores/user.js'
 
 const route = useRoute()
+const userStore = useUserStore()
+const downloading = ref(false)
 
 // ---- 评估列表（GET /api/assessments，摘要，不含 agentResult）----
 const page = ref(1)
@@ -227,12 +233,6 @@ const listLoading = ref(false)
 const listError = ref('')
 /** 列表请求序号：翻页竞态时只认最新一次响应 */
 let listSeq = 0
-
-const visibleItems = computed(() =>
-  filter.value === 'ALL'
-    ? items.value
-    : items.value.filter((item) => item.reviewStatus === filter.value)
-)
 
 // ---- 报告（GET /api/reports/{assessmentId}）----
 const selectedId = ref(null)
@@ -302,7 +302,12 @@ async function loadPage(target = page.value) {
   listLoading.value = true
   listError.value = ''
   try {
-    const data = await listAssessments({ page: target, pageSize: pageSize.value })
+    const data = await listAssessments({
+      page: target,
+      pageSize: pageSize.value,
+      // 服务端筛选：后端 /api/assessments 支持 reviewStatus / riskLevel / keyword 等
+      reviewStatus: filter.value === 'ALL' ? '' : filter.value
+    })
     if (seq !== listSeq) return
     items.value = Array.isArray(data?.items) ? data.items : []
     total.value = Number(data?.total ?? items.value.length)
@@ -326,10 +331,10 @@ function selectReport(row) {
   load(row.assessmentId)
 }
 
-const { onRowKeydown } = useTableKeyboard(visibleItems, selectReport)
+const { onRowKeydown } = useTableKeyboard(items, selectReport)
 
 function exportCsv() {
-  const rows = visibleItems.value.map((item) => [
+  const rows = items.value.map((item) => [
     item.assessmentId,
     item.subjectId,
     formatScore(item),
@@ -387,8 +392,19 @@ async function load(id) {
   }
 }
 
-function print() {
-  window.print()
+/** 下载后端生成的 PDF（PDFBox + ReportSans.ttf）；医生用随访沟通版，其余用研究核查版。 */
+async function download() {
+  if (!report.value || downloading.value) return
+  const audience = userStore.primaryRole === 'DOCTOR' ? 'doctor' : 'research'
+  downloading.value = true
+  try {
+    const filename = await downloadReport(report.value.assessmentId, { format: 'pdf', audience })
+    ElMessage.success(`已开始下载 ${filename}`)
+  } catch (problem) {
+    ElMessage.error(problem?.message || '报告导出失败，请稍后重试')
+  } finally {
+    downloading.value = false
+  }
 }
 
 onMounted(async () => {

@@ -122,6 +122,12 @@ const routes = [
     meta: { title: '评估任务', layout: 'sidebar', roles: ['RESEARCHER', 'DOCTOR', 'ADMIN'] }
   },
   {
+    path: '/research',
+    name: 'ResearchEvidence',
+    component: () => import('../views/researcher/ResearchEvidence.vue'),
+    meta: { title: '研究证据', layout: 'sidebar', roles: ['RESEARCHER', 'ADMIN'] }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'Exception404',
     component: () => import('../views/exception/404.vue'),

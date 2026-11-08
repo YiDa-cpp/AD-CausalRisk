@@ -8,9 +8,11 @@
         <el-input
           v-model="keyword"
           class="search"
-          placeholder="在当前页搜索编号 / 别名"
+          placeholder="按档案编号搜索（服务端）"
           clearable
           :prefix-icon="Search"
+          @keyup.enter="search"
+          @clear="search"
         />
         <el-button :icon="Refresh" @click="load">刷新</el-button>
       </template>
@@ -65,7 +67,7 @@
 
         <div class="table-wrap">
           <el-table
-            :data="filteredItems"
+            :data="items"
             class="table"
             row-key="id"
             highlight-current-row
@@ -250,20 +252,6 @@ function startBatch() {
   ElMessage.success(`已发起 ${ids.length} 个评估任务，进度见右上角面板`)
 }
 
-/**
- * 契约里 GET /api/subjects 只有 page / pageSize，没有 keyword。
- * 因此这里的关键词只过滤"当前页"，界面上也明确写清楚，避免让用户误以为在全局搜索。
- */
-const filteredItems = computed(() => {
-  const q = keyword.value.trim().toLowerCase()
-  if (!q) return items.value
-  return items.value.filter(
-    (row) =>
-      String(row.subjectCode || '').toLowerCase().includes(q) ||
-      String(row.alias || '').toLowerCase().includes(q)
-  )
-})
-
 /** 首次加载 = 还没有任何数据时的加载，只有这种状态才显示骨架屏。 */
 const firstLoading = computed(() => loading.value && items.value.length === 0 && !error.value)
 
@@ -293,12 +281,22 @@ function dedupe(rows) {
   return unique
 }
 
-async function load() {
-  const seq = (requestSeq += 1)
+/** 关键词搜索走服务端：回到第 1 页再请求。 */
+function search() {
+  page.value = 1
+  load()
+}
+
+async function load() {  const seq = (requestSeq += 1)
   loading.value = true
   error.value = null
   try {
-    const data = await listSubjects({ page: page.value, pageSize: pageSize.value })
+    // 后端 GET /api/subjects 已支持 keyword（按档案编号匹配），搜索走后端而不是当前页
+    const data = await listSubjects({
+      page: page.value,
+      pageSize: pageSize.value,
+      keyword: keyword.value.trim()
+    })
     if (seq !== requestSeq) return // 已有更新的请求，丢弃这次结果
     items.value = dedupe(Array.isArray(data?.items) ? data.items : [])
     total.value = Number(data?.total ?? 0)
@@ -320,7 +318,7 @@ function openDrawer(row) {
   loadFollowUps()
 }
 
-const { onRowKeydown } = useTableKeyboard(filteredItems, openDrawer)
+const { onRowKeydown } = useTableKeyboard(items, openDrawer)
 
 useEscapeToClose(
   drawerOpen,
