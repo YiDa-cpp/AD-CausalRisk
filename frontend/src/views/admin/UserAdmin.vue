@@ -116,8 +116,7 @@
       </el-tab-pane>
 
       <!-- 档案授权 -->
-      <el-tab-pane label="档案授权" name="grants">
-        <DataCard padding="none">
+      <el-tab-pane label="档案授权" name="grants">        <DataCard padding="none">
           <div class="filter">
             <el-select
               v-model="grantSubjectId"
@@ -125,7 +124,7 @@
               size="small"
               filterable
               clearable
-              placeholder="选择档案后查看/维护授权"
+              placeholder="选择档案（最多列出前 100 个）"
               @change="loadGrants"
             >
               <el-option
@@ -174,7 +173,7 @@
                 placeholder="选择账号"
               >
                 <el-option
-                  v-for="user in items"
+                  v-for="user in grantUserOptions"
                   :key="user.id"
                   :label="`${user.username}${user.displayName ? `（${user.displayName}）` : ''}`"
                   :value="user.id"
@@ -306,6 +305,8 @@ const form = ref(emptyForm())
 
 // ---- 档案授权 ----
 const subjects = ref([])
+/** 授权下拉的账号选项：独立加载前 100 个，避免只能选到当前页的 20 个 */
+const grantUserOptions = ref([])
 const grantSubjectId = ref(null)
 const grants = ref([])
 const grantsLoading = ref(false)
@@ -393,6 +394,15 @@ async function loadSubjects() {
   }
 }
 
+async function loadGrantUserOptions() {
+  try {
+    const data = await listUsers({ page: 1, pageSize: 100 })
+    grantUserOptions.value = Array.isArray(data?.items) ? data.items : []
+  } catch {
+    grantUserOptions.value = []
+  }
+}
+
 function openCreate() {
   editingId.value = null
   form.value = emptyForm()
@@ -462,6 +472,8 @@ async function save() {
     ElMessage.success(editingId.value ? '账号已更新' : '账号已创建')
     dialogOpen.value = false
     await loadUsers(editingId.value ? page.value : 1)
+    // 账号集合变化后，授权下拉也要跟着更新
+    await loadGrantUserOptions()
   } catch {
     // request.js 已给出具体错误（用户名重复、角色约束等）
   } finally {
@@ -531,6 +543,7 @@ async function revokeGrant(row) {
 onMounted(async () => {
   await loadUsers(1)
   await loadSubjects()
+  await loadGrantUserOptions()
 })
 </script>
 

@@ -24,7 +24,11 @@ export async function downloadReport(assessmentId, { format = 'pdf', audience = 
 
   if (!response.ok) {
     let message =
-      response.status === 403 ? '当前账号无权导出该报告' : '报告导出失败，请稍后重试'
+      response.status === 401
+        ? '登录已过期，请重新登录后再导出'
+        : response.status === 403
+          ? '当前账号无权导出该报告'
+          : '报告导出失败，请稍后重试'
     try {
       const body = await response.json()
       if (body?.message) message = body.message
@@ -48,6 +52,7 @@ export async function downloadReport(assessmentId, { format = 'pdf', audience = 
   document.body.appendChild(link)
   link.click()
   link.remove()
-  URL.revokeObjectURL(url)
+  // 立即 revoke 会让部分浏览器（Safari）取消下载，延迟释放
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   return filename
 }

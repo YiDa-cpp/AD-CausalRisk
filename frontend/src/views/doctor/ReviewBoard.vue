@@ -30,8 +30,12 @@
       <EmptyState
         v-else-if="items.length === 0"
         :icon="Document"
-        :title="filter === 'PENDING' ? '当前页没有待复核的评估' : '还没有评估结果'"
-        description="研究员发起评估后，结果会自动出现在这里；也可以换一页看看。"
+        :title="filter === 'PENDING' ? '没有待复核的评估' : '还没有评估结果'"
+        :description="
+          filter === 'PENDING'
+            ? '所有评估都已复核；可以切换到「全部」查看历史结果。'
+            : '研究员发起评估后，结果会自动出现在这里。'
+        "
       />
 
       <el-table v-else :data="items" class="table" row-key="assessmentId" @keydown.enter="onRowKeydown">
@@ -148,7 +152,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Document, Refresh, WarningFilled } from '@element-plus/icons-vue'

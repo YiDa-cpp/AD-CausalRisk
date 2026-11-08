@@ -32,6 +32,8 @@ const PRESETS = {
   // 档案
   ACTIVE: { label: '在组', tone: 'success' },
   ARCHIVED: { label: '已归档', tone: 'neutral' },
+  // 账号状态（sys_user.status）
+  DISABLED: { label: '已停用', tone: 'neutral' },
   // 风险等级
   HIGH: { label: '高风险', tone: 'danger' },
   MEDIUM: { label: '中风险', tone: 'warning' },

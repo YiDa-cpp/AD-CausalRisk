@@ -41,8 +41,12 @@
       <EmptyState
         v-else-if="items.length === 0"
         :icon="Cpu"
-        title="还没有评估任务"
-        description="在受试者档案里发起评估后，任务历史会出现在这里。"
+        :title="statusFilter ? '没有符合条件任务' : '还没有评估任务'"
+        :description="
+          statusFilter
+            ? '换一个状态筛选，或清空筛选查看全部任务。'
+            : '在受试者档案里发起评估后，任务历史会出现在这里。'
+        "
       />
 
       <el-table v-else :data="items" class="table" row-key="taskId" @row-click="openTask" @keydown.enter="onRowKeydown">

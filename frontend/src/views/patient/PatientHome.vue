@@ -32,16 +32,10 @@
     <!-- 卡片 2：下次复诊 -->
     <section class="hcard" aria-labelledby="visit-title">
       <p id="visit-title" class="hcard__label">下次复诊</p>
-      <p class="hcard__value" :class="{ 'is-empty': !summary?.followUpSummary }">
+      <p class="hcard__value" :class="{ 'is-empty': !followUp?.next && !summary?.followUpSummary }">
         {{ followUpText }}
       </p>
-      <p class="hcard__note">
-        {{
-          state === 'loading'
-            ? '正在读取随访安排…'
-            : '复诊安排以医院通知为准；如有变化请电话确认。'
-        }}
-      </p>
+      <p class="hcard__note">{{ followUpNote }}</p>
     </section>
 
     <!-- 卡片 3：我的主治医生（GET /api/patients/me/doctor） -->
@@ -71,7 +65,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { Printer } from '@element-plus/icons-vue'
-import { getMyDoctor, getPatientSummary } from '@/api/patients.js'
+import { getMyDoctor, getMyFollowUp, getPatientSummary } from '@/api/patients.js'
 
 /**
  * 患者首页只呈现三件事：复核对结论、下次复诊、联系医生。
@@ -82,6 +76,7 @@ import { getMyDoctor, getPatientSummary } from '@/api/patients.js'
 const state = ref('loading') // loading | ready | degraded
 const summary = ref(null)
 const doctor = ref(null)
+const followUp = ref(null)
 const degradeReason = ref('')
 
 const statusText = computed(() => {
@@ -93,8 +88,30 @@ const statusText = computed(() => {
 const followUpText = computed(() => {
   if (state.value === 'loading') return '正在读取…'
   if (state.value === 'degraded') return '暂时无法读取'
+  if (followUp.value?.next?.scheduledAt) {
+    return `已安排 ${formatFollowUp(followUp.value.next.scheduledAt)} 复诊`
+  }
   return summary.value?.followUpSummary || '目前没有已安排的复诊'
 })
+
+const followUpNote = computed(() => {
+  if (state.value === 'loading') return '正在读取随访安排…'
+  const overdue = Number(followUp.value?.overdueCount ?? 0)
+  if (overdue > 0) return `另有 ${overdue} 条复诊已逾期，请联系医生确认。`
+  return '复诊安排以医院通知为准；如有变化请电话确认。'
+})
+
+function formatFollowUp(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date)
+}
 
 async function load() {
   state.value = 'loading'
@@ -110,12 +127,13 @@ async function load() {
     else degradeReason.value = '档案读取失败，请稍后重试'
   }
 
-  // 主治医生单独取：接口失败不影响摘要主体（没有医生时后端返回 null）
-  try {
-    doctor.value = await getMyDoctor()
-  } catch {
-    doctor.value = null
-  }
+  // 主治医生与随访安排单独取：接口失败不影响摘要主体
+  const [doctorResult, followUpResult] = await Promise.allSettled([
+    getMyDoctor(),
+    getMyFollowUp()
+  ])
+  doctor.value = doctorResult.status === 'fulfilled' ? doctorResult.value : null
+  followUp.value = followUpResult.status === 'fulfilled' ? followUpResult.value : null
 }
 
 async function askHelp() {

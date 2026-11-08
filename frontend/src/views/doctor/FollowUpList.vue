@@ -117,7 +117,10 @@
             />
           </el-select>
           <span class="picker__hint">
-            契约里随访按受试者查询，所以先选人再看计划；跨受试者的待办看「全部待办」。
+            {{
+              subjectsError ||
+              '契约里随访按受试者查询，所以先选人再看计划；跨受试者的待办看「全部待办」。'
+            }}
           </span>
         </div>
       </DataCard>
@@ -197,7 +200,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Refresh, Timer, User, WarningFilled } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'

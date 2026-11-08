@@ -37,7 +37,7 @@
       <EmptyState
         v-else-if="items.length === 0"
         :icon="Document"
-        :title="filter === 'ALL' ? '还没有评估结果' : '当前页没有符合条件的评估'"
+        :title="filter === 'ALL' ? '还没有评估结果' : '没有符合条件的评估'"
         description="研究员发起评估后，结果会自动出现在这里。"
       />
 
