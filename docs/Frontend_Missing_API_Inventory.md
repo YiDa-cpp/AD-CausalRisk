@@ -1,420 +1,404 @@
-# 前端功能完备性 —— 缺失接口清单
+# 前端功能完备性 —— 缺失接口与交互清单
 
-> **扫描范围**：`frontend/src/views`（20 个 `.vue`）+ `frontend/src/components`（13 个 `.vue`），共 33 个组件；对照 `contracts/java-business.target.openapi.json`（22 个操作）与 `backend` 全部 Controller（含 6 个契约外的扩展端点）。
-> **扫描方式**：逐个文件提取 API 调用点、本地 `filter()`、写死的 `pageSize`、手输 ID 入口，并与后端 `@RequestParam` 实际支持的参数比对。
-> **结论**：前端有 **16 处**功能是靠"手输 ID / 只在当前页过滤 / 拉前 100 条自己算 / 写死文案"撑起来的。其中 **3 处属于阻断业务闭环（P0）**，**8 处体验极差（P1）**，**5 处可优化（P2）**。
+> **更新时间**：2026-11-08（后端 `#26` 合并后，含 V11/V12、UserManagement / ReportExport / PatientDoctor / AssessmentTrace / Observation / System 等新接口）
+> **当前分支**：`feat/backend-integration`
+> **结论**：**P0 已清零**。当前剩余问题不再是"没有接口"，而是两类：
+> 1. 后端已就绪、前端还没做入口（P1）；
+> 2. 需要后端补字段或产品先定口径（P2）；
+> 再加上少数受接口上限影响的兜底（P3）。
+>
+> **历史**：本文件最初（2026-11-07）记录 16 处"手输 ID / 当前页过滤 / 前 100 条自算"的降级。P0 三项已于 `feat/missing-p0-endpoints` 落地；2026-11-08 又完成了用户管理、真实 PDF 导出、患者医生/随访、服务端筛选、审计分页、随访待办、研究证据等适配，历史记录保留在 [附录 A](#附录-a已完成历史记录2026-11-07--2026-11-08)。
 
 ---
 
 ## 目录
 
-- [一、现状总览：前端是怎么"凑合"的](#一现状总览前端是怎么凑合的)
-- [二、P0：阻断业务闭环（3 条）](#二p0阻断业务闭环3-条)
-- [三、P1：体验极差（8 条）](#三p1体验极差8-条)
-- [四、P2：可优化（5 条）](#四p2可优化5-条)
-- [五、反向清单：后端已有、前端没接（3 条）](#五反向清单后端已有前端没接3-条)
-- [六、接口设计约定（新增接口请遵守）](#六接口设计约定新增接口请遵守)
-- [七、建议实施顺序](#七建议实施顺序)
-- [八、影响面矩阵](#八影响面矩阵)
+- [一、P0 级：阻断级（已清零）](#一p0-级阻断级已清零)
+- [二、P1 级：体验升级与交互补全（有待开发）](#二p1-级体验升级与交互补全有待开发)
+- [三、P2 级：需后端配合或产品定调（待定项）](#三p2-级需后端配合或产品定调待定项)
+- [四、P3 级：当前受限于接口上限（已知限制）](#四p3-级当前受限于接口上限已知限制)
+- [附录 A：已完成历史记录（2026-11-07 / 2026-11-08）](#附录-a已完成历史记录2026-11-07--2026-11-08)
+- [附录 B：接口设计约定](#附录-b接口设计约定)
+- [附录 C：建议实施顺序](#附录-c建议实施顺序)
+- [附录 D：影响面矩阵](#附录-d影响面矩阵)
+- [附录 E：核对依据](#附录-e核对依据)
 
 ---
 
-## 一、现状总览：前端是怎么"凑合"的
+## 一、P0 级：阻断级（已清零）
 
-| 页面 | 依赖接口 | 现状（凑合方式） | 证据 |
-| --- | --- | --- | --- |
-| 待办复核 `/reviews` | `GET /assessments/{id}` | **手输评估 ID**，一次只能载入一条；"全部/待复核"在前端 `filter` | `ReviewBoard.vue:22` 页面自述、`:151` 前端过滤 |
-| 评估任务 `/tasks` | `GET /assessment-tasks/{id}` | **手输任务 ID**，无历史列表 | `TaskList.vue:40` |
-| 评估报告 `/reports` | `GET /reports/{id}` | **手输评估 ID**（或从别的页带 `?assessmentId=` 跳过来） | `ReportList.vue:30` |
-| 因果图谱 `/graph` | `GET /assessments/{id}` | **手输评估 ID** | `GraphView.vue:32` |
-| 受试者档案 `/subjects` | `GET /subjects?page&pageSize` | 关键词**只过滤当前 20 行**；分页每行都重新请求 | `PatientList.vue:248-260` 注释明确写了这点 |
-| 随访计划 `/followups` | `GET /subjects?pageSize=100` + `GET /subjects/{id}/follow-ups` | 受试者下拉**最多 100 人**（后端 pageSize 上限 100），超出的人选不到 | `FollowUpList.vue:149` |
-| 医生工作台 `/doctor` | 无 | 指标全是 `null` → 渲染成"**待接入**" | `DoctorHome.vue:15,36,67` |
-| 数据大屏 `/admin` | `GET /subjects?pageSize=100` + `/qc/stats` + `/audit-logs` | 拉**前 100 条**，趋势/状态分布在前端 `filter` + 分日聚合 | `AdminHome.vue:72,177-178,203` |
-| 审计日志 `/admin/audit` | `GET /audit-logs` | **全量**返回，无分页、无筛选 | `AuditLog.vue` |
-| 数据导入 `/imports` | 上传 + 预检 + commit | **无历史任务**，刷新即丢；只能看到当前这一次 | `ImportCenter.vue`（无 list 调用） |
-| 账号管理 `/admin/users` | 无 | 纯骨架，表头写死 | `UserAdmin.vue` |
-| 系统设置 `/admin/system` | 仅 `GET /me`（连通性探测） | 版本/契约信息是**构建期常量**，非运行时数据 | `SystemSettings.vue` |
-| 患者端 `/patient` | `GET /subjects?pageSize=1` + `/subjects/{id}/follow-ups` | 用"列表取第一条"当"我的档案"；结论**写死**"您的报告正在等待医生复核" | `PatientHome.vue:79,53` |
+**无。**
 
----
+P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 
-## 二、P0：阻断业务闭环（3 条）
-
-> **状态（2026-11-07）**：P0-1 / P0-2 / P0-3 已实现，`feat/missing-p0-endpoints` 分支。
-> 实际落地与下方"建议接口"的差异：列表只支持 `page` / `pageSize`（未做 `reviewStatus` 等服务端筛选，
-> 页面明确标注"筛选仅作用于当前页"）；患者摘要走独立的 `GET /api/patients/me/summary`，
-> 返回比 `PatientAssessmentSummary` 多出 `subjectCode/alias/hasAssessment/pendingReview`，
-> 以便区分"未绑定 / 已绑定但无评估"。原始分数可见性规则与详情接口一致：PATIENT 与
-> `SUMMARY_READ`-only 医生在列表、任务历史、任务详情上都拿不到 `riskScore` / `runId`。
-
-### P0-1 评估结果列表
-
-**现象**
-`/reviews` 页面上写着一行字（`ReviewBoard.vue:22`）：
-
-> "契约里只有 POST /api/assessment-tasks、GET /api/assessment-tasks/{id}、GET /api/assessments/{id}。所以这里按评估 ID 载入后在前端按 reviewStatus 过滤。"
-
-也就是说：医生**必须事先知道评估 ID** 才能复核。评估 ID 从哪来？只能从档案抽屉里点进去看，或者从任务页跳。真实场景（"今天有 12 份待复核"）根本无法呈现；「全部/待复核」这个筛选器是在前端对**已手动载入的几条**做过滤，数据量永远是 0 或 1 起步。
-
-**建议接口**
-
-```http
-GET /api/assessments?page=1&pageSize=20&reviewStatus=PENDING&subjectId=&riskLevel=&from=&to=&sort=createdAt,desc
-```
-
-| 参数 | 类型 | 说明 |
+| 闭环 | 接口 | 落地页面 |
 | --- | --- | --- |
-| `page` / `pageSize` | int | 1 起，`pageSize ≤ 100`（与 subjects 一致） |
-| `reviewStatus` | enum | `PENDING / ACKNOWLEDGED / NEEDS_DATA / REJECTED`，可省 |
-| `subjectId` | long | 指定受试者，可省 |
-| `riskLevel` | enum | `LOW / MEDIUM / HIGH / UNAVAILABLE`，可省 |
-| `from` / `to` | ISO date-time | 按 `createdAt` 过滤，可省 |
-| `sort` | string | 默认 `createdAt,desc` |
+| 评估结果列表（分页 + 服务端筛选） | `GET /api/assessments?page&pageSize&reviewStatus&riskLevel&keyword&subjectId&from&to` | `/reviews`、`/reports` |
+| 评估任务历史（分页 + 状态筛选） | `GET /api/assessment-tasks?page&pageSize&status&subjectId&from&to` | `/tasks` |
+| 患者脱敏摘要 | `GET /api/patients/me/summary` | `/patient` |
+| 评估报告（按评估渲染 + 真实 PDF） | `GET /api/reports/{id}`、`GET /api/reports/{id}/download` | `/reports` |
+| 患者医生与随访 | `GET /api/patients/me/doctor`、`GET /api/patients/me/follow-up` | `/patient` |
 
-响应（`PageResult<AssessmentSummary>`，**不含** `agentResult`，避免列表拖几百 KB 的图）：
-
-```json
-{
-  "code": 0, "message": "成功", "errorCode": null, "traceId": "…", "timestamp": "…",
-  "data": {
-    "items": [{
-      "assessmentId": 19,
-      "subjectId": 1,
-      "subjectCode": "DEMO-001",
-      "subjectAlias": "合成档案001",
-      "taskId": 21,
-      "riskScore": 0.77,
-      "riskLevel": "HIGH",
-      "qualityStatus": "WARN",
-      "reviewStatus": "PENDING",
-      "createdAt": "2026-10-30T17:18:53Z"
-    }],
-    "page": 1, "pageSize": 20, "total": 12
-  }
-}
-```
-
-**权限**：DOCTOR 看自己授权档案的结果；RESEARCHER / ADMIN 全量（与现有 `canReadRawScores` / `hasFullVisibility` 一致）。
-**前端改造点**：`ReviewBoard.vue` 把 `loadById()` 换成 `listAssessments()`；`ReportList.vue` 增加"最近报告"列表（复用同一接口）。
-**验收**：医生登录后进入 `/reviews` 直接看到 12 条待复核，无需输入任何 ID。
+> 历史 P0-1 / P0-2 / P0-3 的原始问题、建议接口与验收标准已归档在 [附录 A](#附录-a已完成历史记录2026-11-07--2026-11-08)，不再作为待办。
 
 ---
 
-### P0-2 评估任务列表
+## 二、P1 级：体验升级与交互补全（有待开发）
 
-**现象**
-`/tasks` 页面自述（`TaskList.vue:40`）："按任务 ID 查询；批量评估的进度请用「受试者档案」页右上角的进度面板。"
+> 判定标准：**后端接口已就绪并已确认路径/结构**，只差前端交互入口。全部为纯前端改动。
 
-批量评估 20 个人后，只要刷新页面或关掉面板，**这 20 个任务就再也找不到了**——除非你记得每个 taskId。这是"数据进去了、结果拿不出来"的典型断链。
+### P1-1 评估任务的「取消 / 提交」
 
-**建议接口**
-
-```http
-GET /api/assessment-tasks?page=1&pageSize=20&status=&subjectId=&from=&to=
-```
-
-| 参数 | 说明 |
+| 项 | 内容 |
 | --- | --- |
-| `status` | `PENDING/RUNNING/COMPLETED/BLOCKED/FAILED/CANCELLED` |
-| `subjectId` | 可选 |
-| `from` / `to` | 按 `createdAt` |
+| 接口 | `POST /api/assessment-tasks/{taskId}/cancel`；`POST /api/assessment-tasks/submit`（与 create 同 body，带 `Idempotency-Key`） |
+| 建议交互 | 任务抽屉对 `PENDING/RUNNING` 状态显示「取消任务」（二次确认 + loading + 失败原因展示）；批量评估面板提供「提交」入口替代同步 create |
+| 验收 | 取消后任务状态变为 `CANCELLED`，列表与抽屉同步；取消失败（已完成）提示原因 |
+| 影响文件 | `views/researcher/TaskList.vue`、`components/doctor/AssessmentPanel.vue` |
 
-响应 `PageResult<AssessmentTask>`（结构完全复用现有 `AssessmentTask`，含 V10 起持久化的 `errorCode/message`）。
+### P1-2 档案数据来源与能力展示
 
-**前端改造点**：`TaskList.vue` 顶部加"最近的评估任务"表（含状态筛选、失败原因列），把 ID 输入框降级为"按 ID 精确查找"的次要入口；`BatchProgressPanel` 增加"查看历史任务"链接。
-**验收**：刷新后仍能看到最近 20 次评估任务及其失败原因。
+| 项 | 内容 |
+| --- | --- |
+| 接口 | `GET /api/subjects/{id}/feature-sources`、`GET /api/subjects/{id}/visit-sources`、`GET /api/subjects/{id}/capabilities` |
+| 建议交互 | 档案抽屉新增「数据来源」标签页：特征/访视逐行显示 `source`、`missingReason`、`dataVersion`、`importJobId`；「能力」区块显示该档案支持哪些操作（补录/评估/随访） |
+| 验收 | 医生能回答"这条 MMSE 是哪次导入、缺失原因是什么"；无权限时不显示原始值 |
+| 影响文件 | `views/doctor/PatientList.vue`、`components/doctor/VisitHistory.vue` |
 
----
+### P1-3 导入历史与错误 CSV 导出
 
-### P0-3 患者个人摘要（契约已声明 schema，后端未实现）
+| 项 | 内容 |
+| --- | --- |
+| 接口 | `GET /api/import-jobs?page&pageSize&status&keyword&from&to`（分页历史）；`GET /api/import-jobs/{id}/errors.csv`（`text/csv` 附件） |
+| 建议交互 | `/imports` 下半屏加「最近导入」表（任务号/状态/总行数/有效/无效/时间）；行内「下载错误明细」直接触发 CSV 下载；点击行回填预检面板 |
+| 验收 | 刷新页面仍能看到历史任务；错误 CSV 可用 Excel 打开且包含行号与原因 |
+| 影响文件 | `views/researcher/ImportCenter.vue`、`api/imports.js` |
 
-**现象**
-`PatientHome.vue:53` 的注释写得很直白：
+### P1-4 报告多格式导出（HTML / JSON）
 
-> "契约里没有已实现的患者摘要端点（GET /api/assessments/{id} 对 PATIENT 返回 403），因此状态卡固定展示'等待医生复核'。"
+| 项 | 内容 |
+| --- | --- |
+| 接口 | `GET /api/reports/{id}/download?format=pdf\|html\|json&audience=research\|doctor`（已支持三种格式） |
+| 建议交互 | 报告页「下载」改为下拉：PDF（默认）/ HTML（可打印预览）/ JSON（研究归档）；保留按角色选择 `audience` |
+| 验收 | 三种格式均能下载且文件名正确；HTML 在浏览器中可读、JSON 可被解析 |
+| 影响文件 | `views/doctor/ReportList.vue`、`api/reports.js` |
 
-于是患者永远看到同一句话，**不管他有没有评估、评估结果是什么**。这是"功能存在但永远说一句话"的假页面。
+### P1-5 复核历史时间线
 
-**关键事实**：契约里 `GET /api/assessments/{assessmentId}` 的 200 响应已经是 `oneOf: [Assessment, PatientAssessmentSummary]`，`PatientAssessmentSummary` 的 schema 也定义好了（`summary` / `followUpSummary` / `limitations`）。缺的不是 schema，而是**后端没走这个分支**。
+| 项 | 内容 |
+| --- | --- |
+| 接口 | `GET /api/assessments/{assessmentId}/reviews`（后端早已存在，前端从未调用） |
+| 建议交互 | 复核抽屉底部展示时间线：谁在何时做了 `ACKNOWLEDGED / NEEDS_DATA / REJECTED`，以及意见全文 |
+| 验收 | 多次复核的评估能看到完整改判历史；无权限时不加载 |
+| 影响文件 | `views/doctor/ReviewBoard.vue` |
 
-**建议接口（二选一）**
+### P1-6 质控搜索与新分页接口
 
-方案 A（最小改动，复用现有路径）：
+| 项 | 内容 |
+| --- | --- |
+| 接口 | `GET /api/qc/list?subjectCode&subjectAlias&status&page&pageSize`（旧接口已支持搜索）；`GET /api/quality-checks?page&pageSize&status&subjectId&keyword&from&to`（新分页接口） |
+| 建议交互 | 质控页加档案编号/别名搜索框；逐步迁移到 `/api/quality-checks` 服务端分页，保留现有审核操作 |
+| 验收 | 搜 `DEMO-050` 能命中；分页 `total` 为过滤后总数 |
+| 影响文件 | `views/researcher/QcList.vue`、`api/qc.js` |
 
-```http
-GET /api/assessments/{assessmentId}
-Cookie: JSESSIONID=…
-→ PATIENT 且能读自己的档案时，返回 PatientAssessmentSummary 而不是 403
-```
+### P1-7 档案编辑（别名 / 状态）
 
-```json
-{ "code": 0, "data": {
-    "assessmentId": 19,
-    "summary": "目前风险偏高，建议 3 个月后复诊并关注记忆力变化。",
-    "followUpSummary": "已为您安排 2026-12-15 复诊。",
-    "limitations": ["结论基于既往数据，不能替代医生面诊"]
-}}
-```
+| 项 | 内容 |
+| --- | --- |
+| 接口 | `PATCH /api/subjects/{subjectId}`（已存在，前端无入口） |
+| 建议交互 | 档案抽屉加「编辑」按钮：别名、状态（`ACTIVE/ARCHIVED`）；保存后列表与抽屉同步，后端已写审计 |
+| 验收 | 修改别名后列表即时刷新；非法值由后端 400 并有可读提示 |
+| 影响文件 | `views/doctor/PatientList.vue`、`api/subjects.js` |
 
-方案 B（更贴合患者心智，推荐）：
+### P1-8 数据补录（观测 / 访视 / 质控）
 
-```http
-GET /api/patients/me/summary
-→ {
-    "subject": { "subjectCode": "DEMO-001", "alias": "合成档案001" },
-    "latestAssessment": PatientAssessmentSummary | null,
-    "nextFollowUp": { "scheduledAt": "…", "purpose": "…" } | null,
-    "pendingReview": true
-  }
-```
+| 项 | 内容 |
+| --- | --- |
+| 接口 | `POST /api/subjects/{id}/observations`、`POST /api/subjects/{subjectId}/visits`、`POST /api/subjects/{subjectId}/quality-checks` |
+| 建议交互 | 研究员/医生在档案抽屉里「补录观测」「补录访视」「发起质控」，表单字段按后端 `Input` DTO 生成；提交后刷新来源与历史 |
+| 验收 | 补录的数据能在 `visit-sources`/`feature-sources` 与质控列表中看到，且带 `dataVersion` |
+| 影响文件 | 新增 `components/subject/ObservationDialog.vue`、`VisitDialog.vue`；`views/doctor/PatientList.vue` |
 
-**约束**（AGENTS.md 硬要求）：患者响应**不得**包含 `riskScore` 原值、`graph` 权重、`explanations.contribution` 或任何内部追踪字段。
-**前端改造点**：`PatientHome.vue` 状态卡改为渲染 `latestAssessment.summary`；`pendingReview=true` 时才显示"等待复核"。
-**验收**：患者登录看到的是"结论句 + 复诊时间"，而不是固定文案。
+### P1-9 系统设置接运行时信息
 
----
+| 项 | 内容 |
+| --- | --- |
+| 接口 | `GET /api/system/info`（`appVersion / gitCommit / javaVersion / contractVersion / models[]`；`python` 成功时为 `{available, health, latencyMs}`，失败时为 `{available:false, message}`） |
+| 建议交互 | `SystemSettings.vue` 用运行时数据替换 `__APP_VERSION__` 等构建常量；Python 不可用时显示明确状态 |
+| 验收 | 页面显示的版本/提交号与后端实际运行一致；后端不可达时回退为"离线" |
+| 影响文件 | `views/admin/SystemSettings.vue`、新增 `api/system.js` |
 
-## 三、P1：体验极差（8 条）
+### P1-10 用户偏好设置
 
-### P1-1 受试者列表的关键词搜索
+| 项 | 内容 |
+| --- | --- |
+| 接口 | `GET /api/me/preferences`、`PATCH /api/me/preferences`（默认 `{ density: 'comfortable', fontSize: 16, notifications: true }`） |
+| 建议交互 | 顶栏用户菜单加「偏好」：界面密度、字号、通知开关；保存后本地即时生效并写入后端 |
+| 验收 | 刷新/换设备后偏好保留；非法键值由后端 400 |
+| 影响文件 | `layouts/SidebarLayout.vue`、新增 `api/preferences.js` |
 
-**现象**：`GET /api/subjects` 只有 `page` / `pageSize`。`PatientList.vue:252-260` 的 `filteredItems` 只过滤**当前页**，界面文案也承认了这一点。副作用很严重：`FollowUpList` 用 `pageSize: 100` 取全量下拉，**超过 100 个受试者就选不到人**（后端硬上限 100）。
+### P1-11 图谱版本对比入口
 
-**建议接口**：`GET /api/subjects?keyword=张&page=1&pageSize=20&status=ACTIVE`
-- `keyword`：对 `subjectCode` / `alias` 做 `LIKE %kw%`（建议后端转义 `%` `_`），大小写不敏感；
-- 响应结构不变（`PageSubject`），只是 `total` 变成过滤后的总数。
+| 项 | 内容 |
+| --- | --- |
+| 接口 | `GET /api/subjects/{id}/graph-diff?from={assessmentId}&to={assessmentId}` |
+| 建议交互 | `/graph` 顶部加「对比两次评估」：选择该档案的两个评估 → 展示新增/移除/变更的节点与边，并固定标注"仅比较结构与观测状态，不证明个体因果变化" |
+| 验收 | 对比结果与后端返回一致；同一档案不同受试者的评估被后端 400 拒绝时提示清楚 |
+| 影响文件 | `views/doctor/GraphView.vue`、`api/assessments.js` |
 
-**前端改造点**：输入框加 300ms 防抖 → 带 `keyword` 请求；`FollowUpList` 的下拉改为**远程搜索**（`el-select filterable remote`），顺带解决 100 人上限。
-**验收**：库里 100 条时搜 `DEMO-050` 能命中；101 条时仍能选到第 101 个人。
+### P1-12 任务输入快照查看
 
----
-
-### P1-2 审计日志分页与筛选
-
-**现象**：`GET /api/audit-logs` 无参数、全量返回。`AuditLog.vue` 直接 `listAuditLogs()` 一次性渲染，`AuditStream.vue` 再截取 8 条给大屏用。事件一多（每次复核 +1 条）页面会越来越慢。
-
-**建议接口**：
-
-```http
-GET /api/audit-logs?page=1&pageSize=20&eventType=ASSESSMENT_REVIEW&actorId=4&from=&to=
-→ PageResult<AuditEvent>
-```
-
-**前端改造点**：`AuditLog.vue` 换 `el-pagination` + 事件类型下拉；`AdminHome` 用 `pageSize=8` 只取首页（不再全量拉）。
-**兼容性提醒**：这是契约变更（现在 `data` 是数组），建议**新增** `GET /api/audit-logs/page` 或加 `page` 参数时保持"无参数=旧行为"的过渡期，避免前端大屏直接崩。
-
----
-
-### P1-3 数据大屏聚合统计
-
-**现象**：`AdminHome.vue:72` `const PAGE_SIZE = 100`，`:203` 拉前 100 条档案，`:177-178` 用 `filter` 数 ACTIVE/ARCHIVED，`:125-129` 在前端按日期分桶算趋势。页面底部自己也写了"统计口径：前 100 条"。
-
-真实数据超过 100 条后，卡片上的"档案总数"是 100 而不是真实总数（因为用的是 `items.length` 还是 `total`，取决于实现——当前用的是 `total`，但**趋势与状态分布**仍是前 100 条的切片）。
-
-**建议接口**：
-
-```http
-GET /api/dashboard/summary?range=30d
-→ {
-    "subjects": { "total": 128, "active": 120, "archived": 8, "newInRange": 12 },
-    "assessments": { "total": 64, "pendingReview": 9, "highRisk": 14, "blocked": 3 },
-    "quality": { "pending": 2, "approved": 31, "rejected": 4 },
-    "trend": [{ "date": "2026-10-01", "created": 3 }, …],
-    "recentAudit": [ AuditEvent × 8 ]
-  }
-```
-
-一次请求替代现在 3 个请求 + 前端聚合；`recentAudit` 内联后大屏只剩 1 次轮询。
-**前端改造点**：`AdminHome.vue` 的 `loadAll()` 简化为单请求；`PAGE_SIZE` / 分日聚合 / `filter` 全部删除。
-**验收**：库里 500 条档案时，大屏数字与 SQL `count(*)` 一致。
+| 项 | 内容 |
+| --- | --- |
+| 接口 | `GET /api/assessment-tasks/{id}/input`（`available=false` 时返回"历史任务未保存输入快照"） |
+| 建议交互 | 任务抽屉加「输入快照」区块：输入摘要、数据版本、采集时间、请求体、质控与来源；不可用时展示后端说明而非空白 |
+| 验收 | 新任务可看到快照；老任务明确显示"不能从当前资料追溯重建" |
+| 影响文件 | `views/researcher/TaskList.vue` |
 
 ---
 
-### P1-4 导入任务历史
+## 三、P2 级：需后端配合或产品定调（待定项）
 
-**现象**：`ImportCenter.vue` 只有"当前这一次"上传/预检/入库的面板，`ImportJob` 接口只有 `POST` 和 `GET /{jobId}`。刷新页面后，上一次导入的记录（任务号、行数、错误明细）全部消失。
+> 判定标准：**接口/字段尚不存在，或已存在但指标口径/交互规范需要产品先决定**。
 
-**建议接口**：`GET /api/import-jobs?page=1&pageSize=20&status=COMMITTED&from=&to=`
-→ `PageResult<ImportJob>`（结构不变）。
+### P2-1 用户「最近登录」
 
-**前端改造点**：`/imports` 下半屏加"最近导入"表，点击某行回填预检面板。
+| 项 | 内容 |
+| --- | --- |
+| 现状 | `GET /api/users` 返回 `id/username/status/dataScope/createdAt/displayName/department/phone/officeHours/roles`，**没有 `lastLoginAt`**；`sys_user` 表也没有该列 |
+| 需要的后端 | V13 增加 `last_login_at`，登录成功时更新，并在 users 列表返回 |
+| 前端准备 | 表格已预留列位，字段一到即可展示；此前不编造"最近登录" |
 
----
+### P2-2 大屏改用 `dashboard/summary` 与指标口径
 
-### P1-5 报告列表
-
-**现象**：`/reports` 只能手输评估 ID。复核完的评估想打印报告，得记住 ID 或从复核页跳。
-
-**建议接口**：两个选择——
-- 复用 P0-1 的 `GET /api/assessments`（加 `hasReport=true` 过滤），前端用同一份列表；
-- 或独立 `GET /api/reports?page&pageSize&subjectId` → `PageResult<{ assessmentId, subjectId, riskLevel, createdAt }>`。
-
-**推荐**：复用 P0-1，避免为同一份数据再造一个端点。
-
----
-
-### P1-6 跨受试者的随访待办
-
-**现象**：随访只能"先选一个受试者，再看这个人的随访"（`GET /api/subjects/{id}/follow-ups`）。医生的真实问题是"**今天/本周我要随访哪些人**"，现在无法回答；`DoctorHome` 的"今日随访"卡片也只能是空的。
-
-**建议接口**：
-
-```http
-GET /api/follow-ups?from=2026-11-05&to=2026-11-12&status=PLANNED&subjectId=&page=1&pageSize=50
-→ PageResult<FollowUpView>   // FollowUpResult + subjectCode + subjectAlias + overdue:boolean
-```
-
-**前端改造点**：`DoctorHome` 的"今日随访"与 `/followups` 顶部都换成这个接口；原来的"按受试者查"保留为档案抽屉内的局部视图。
-
----
-
-### P1-7 单个受试者的随访列表分页
-
-**现象**：`GET /api/subjects/{id}/follow-ups` 返回**全量数组**，前端自己排序。长期随访的人（每 3 个月一次 × 5 年）会有 20+ 条，暂时不致命，但没有 `status` 过滤，患者端要自己 `filter` 出 `PLANNED`。
-
-**建议接口**：给现有路径加分页与状态：
-`GET /api/subjects/{id}/follow-ups?status=PLANNED&page=1&pageSize=20&order=scheduledAt,asc`
-（为兼容，不传分页时仍返回数组；或统一返回 `PageResult` 并同步改前端——**建议一次性统一为 PageResult**，越晚改成本越高。）
-
----
-
-### P1-8 用户与档案授权管理
-
-**现象**：`/admin/users` 是纯骨架。更严重的是**授权无法配置**：医生能看到哪些档案完全由 `V9` 迁移里的种子数据决定，产品内没有任何入口给新医生授权（这是之前医生端"0 条档案"的根因）。
-
-**建议接口**：
-
-```http
-GET   /api/users?page=1&pageSize=20&role=DOCTOR&keyword=
-PATCH /api/users/{userId}            // { status: ACTIVE|DISABLED }
-GET   /api/subjects/{subjectId}/permissions
-POST  /api/subjects/{subjectId}/permissions   // { userId, permissionType: VIEW|MANAGE|SUMMARY_READ }
-DELETE /api/subjects/{subjectId}/permissions/{id}
-```
-
-**约束**：仅 ADMIN；授权变更必须写审计事件（`SUBJECT_PERMISSION_GRANTED`）。
-**前端改造点**：`UserAdmin.vue` 接列表 + 启用/禁用；档案抽屉加"授权"按钮。
-
----
-
-## 四、P2：可优化（5 条）
-
-### P2-1 报告 PDF 导出
-
-**现象**：`ReportList.vue` 用 `window.print()`，打印样式已经调好，但无法直接下载文件；不同浏览器打印结果不一致。
-**建议接口**：`GET /api/reports/{assessmentId}?format=pdf`（`Content-Type: application/pdf`），后端用模板渲染，保证与屏上一致；或 `POST /api/reports/{id}/render` 返回文件 ID。
-**注意**：PDF 生成需要中文字体与图表渲染，建议服务端用 HTML→PDF，并把免责声明一并排版。
-
-### P2-2 患者端"联系医生"的真实联系方式
-
-**现象**：`PatientHome.vue` 的弹窗只能写"请联系您的主治医生"，因为没有联系方式字段。
-**建议接口**：`GET /api/patients/me/doctor` → `{ name, department, phone, officeHours }`（**仅暴露必要字段**，不要带医生账号 ID）。
-**前端**：弹窗直接展示电话（大字号、可点击拨号 `tel:`）。
+| 项 | 内容 |
+| --- | --- |
+| 现状 | 大屏仍用 `GET /api/subjects` 全量（上限 2000）+ `/api/qc/stats` + `/api/audit-logs` 前端聚合；`GET /api/dashboard/summary` 已存在，返回 `subjects/pendingReview/highRisk/todayFollowups/overdueFollowups/followupPreviewLimit` |
+| 待定 | 现有四个指标是「档案总数 / 待审质控 / 质控拦截 / 审计事件」，与 summary 字段（评估复核数、高风险数、今日随访）语义不同，需要产品确认最终展示哪些指标、是否需要趋势序列 |
+| 前端准备 | 尚未封装 `api/dashboard.js`；待口径确认后新增该客户端并替换 `loadAll()` 的三请求聚合 |
 
 ### P2-3 审计事件详情（前后值）
 
-**现象**：列表只有 `summary` 一句话，无法回答"他把复核改成了什么"。
-**建议**：`GET /api/audit-logs/{id}` → `{ …, payload: { before: {...}, after: {...} } }`；或列表直接带 `payload`（注意脱敏）。
-**前端**：行展开显示 diff。
+| 项 | 内容 |
+| --- | --- |
+| 现状 | `/api/audit-logs` 与 `/api/audit-logs/page` 都只返回 `summary`，没有变更前后值 |
+| 需要的后端 | `GET /api/audit-logs/{id}` 返回脱敏后的 `payload.before/after`，或在分页接口内联 |
+| 产品 | 需要确认哪些事件类型允许展示 diff（避免泄露敏感字段） |
 
-### P2-4 系统信息接口
+### P2-4 患者「我的摘要」独立页与导航
 
-**现象**：`/admin/system` 里的"Java 后端版本""Python 版本"来自**构建期常量**，只有"在线/延迟"是真实探测。评审若问"后端到底跑的是哪个版本"，页面给不出运行时答案。
-**建议接口**：`GET /api/system/info` → `{ appVersion, gitCommit, javaVersion, contractVersion, python: { version, health, latencyMs } }`（仅 ADMIN）。
-**前端**：替换 `SystemSettings.vue` 里的 `__CONTRACT_VERSION__` 等常量。
+| 项 | 内容 |
+| --- | --- |
+| 现状 | 患者布局（`PatientLayout`）没有侧边栏，`menuRegistry.summary` 仍 `ready:false`；首页已承载摘要 + 复诊 + 医生卡片 |
+| 待定 | 是否需要独立 `/summary` 页面（可打印版），以及患者端是否引入底部导航；当前首页信息已覆盖，不重复建设 |
+| 前端准备 | 摘要卡片组件可直接复用；打印样式已就绪 |
 
-### P2-5 图谱版本对比（研究向）
+### P2-5 报告 `audience=patient`（患者版）
 
-**现象**：图谱页只能看单次评估的图；研究场景常问"同一患者两次评估的节点/边有何变化"。
-**建议接口**：`GET /api/subjects/{id}/graph-diff?from={assessmentId}&to={assessmentId}` → `{ addedNodes, removedNodes, changedEdges }`。
-**优先级理由**：属于研究增值功能，不阻塞临床闭环。
+| 项 | 内容 |
+| --- | --- |
+| 现状 | `ReportExportService` 仅接受 `research` / `doctor`；患者摘要走 `/api/patients/me/summary` |
+| 待定 | 是否需要"患者版 PDF"（脱敏、无分数/图），以及患者能否自行下载 |
+| 风险 | 若开放，必须确保 PDF 不含 `riskScore`、`graph`、`explanations` 等原始字段 |
 
----
+### P2-6 模型配置界面
 
-## 五、反向清单：后端已有、前端没接（3 条）
+| 项 | 内容 |
+| --- | --- |
+| 现状 | `PATCH /api/system/models/{version}` 已存在（启用/停用模型），前端无入口 |
+| 待定 | 需要产品定义"模型启用"的业务语义与审批流程；当前仅系统设置页展示只读信息 |
 
-这三条**不需要后端写代码**，是前端欠的债，列出来避免重复开发。
+### P2-7 输入快照 / 图谱对比的展示规范
 
-| # | 已有能力 | 现状 | 建议 |
-| --- | --- | --- | --- |
-| R-1 | `GET /api/assessments/{assessmentId}/reviews`（复核历史） | 前端从未调用（全项目 grep 无此调用） | 复核抽屉加"复核记录"时间线，直接展示谁在何时改判/要求补数据 |
-| R-2 | `GET /api/qc/list` 支持 `subjectCode` / `subjectAlias` | 前端只传 `status/page/pageSize` | 质控页加搜索框（**后端已就绪，纯前端改动**） |
-| R-3 | `PATCH /api/subjects/{subjectId}` | 无编辑入口 | 档案抽屉加"编辑别名/状态"（注意：修改需审计） |
-
----
-
-## 六、接口设计约定（新增接口请遵守）
-
-1. **统一 Envelope**：`{ code, message, data, errorCode, traceId, timestamp }`，成功 `code=0`。列表接口的 `data` 用 `PageResult<T> { items, page, pageSize, total }`（与 `/subjects` 一致），**不要**再出现"直接返回数组"的端点（`follow-ups`、`audit-logs` 已是遗留形态）。
-2. **分页上限**：`page ≥ 1`，`pageSize ∈ [1,100]`，超界**钳制**而不是 400（与现有 `SubjectService` 一致）。
-3. **排序**：默认 `createdAt,desc`；允许 `sort=field,asc|desc`，字段白名单校验。
-4. **列表不返回大字段**：`AssessmentSummary` 不带 `agentResult`；需要时再单独 `GET /assessments/{id}`。
-5. **权限**：对象级授权在 Java 内判定（AGENTS.md 要求），DOCTOR 只看授权档案；PATIENT 只读自己，且**禁止**返回原始分数/图权重。
-6. **审计**：任何写操作（复核、审核、授权、编辑）都要落 `audit_event`，`eventType` 用稳定常量。
-7. **幂等**：创建类接口沿用 `Idempotency-Key`（现有 `POST /assessment-tasks`、`POST /import-jobs` 已实现）。
-8. **契约同步**：新增/变更必须更新 `contracts/java-business.target.openapi.json` 与 `docs/Integration_Contract.md`，并补契约测试（现有 `EnvelopeContractTest` / `ContractSchemas`）。
+| 项 | 内容 |
+| --- | --- |
+| 现状 | `GET /api/assessment-tasks/{id}/input` 与 `/graph-diff` 已就绪（P1-11/P1-12 是入口层） |
+| 待定 | 快照与 diff 的展示字段、免责声明措辞、是否允许导出，需要研究/临床双方确认 |
 
 ---
 
-## 七、建议实施顺序
+## 四、P3 级：当前受限于接口上限（已知限制）
 
-### 迭代 1（打通闭环，约 3 个接口）
-1. `GET /api/assessments`（P0-1）——同时解决"待办复核"和"报告列表"
-2. `GET /api/assessment-tasks`（P0-2）——批量评估结果可追溯
-3. `GET /api/patients/me/summary`（P0-3）——患者端不再说假话
+> 这些不是"缺接口"，而是现有接口没有分页/搜索参数，前端只能用"前 N 条"兜底。后端加上参数即可消除。
 
-> 做完这三个，前端有四五个页面的"手输 ID"提示可以整段删掉。
+### P3-1 授权弹窗的档案 / 账号选择上限 100
 
-### 迭代 2（补齐体验，约 4 个接口）
-4. `GET /api/subjects?keyword=`（P1-1）——顺带修掉随访下拉 100 人上限
-5. `GET /api/audit-logs?page=`（P1-2）
-6. `GET /api/dashboard/summary`（P1-3）——大屏不必再"前 100 条自己算"
-7. `GET /api/follow-ups?from&to&status`（P1-6）——医生"今日随访"才有数据
+| 项 | 内容 |
+| --- | --- |
+| 现状 | `UserManagementController` 的 `GET /api/subjects/{id}/permissions` 与授权写入没有搜索参数；`UserAdmin` 的档案下拉与授权账号下拉各取前 100 条 |
+| 消除条件 | `GET /api/users` 已支持 `keyword`（用户列表搜索）；授权下拉可改为远程搜索。档案侧 `GET /api/subjects?keyword=` 也已支持，可同样改远程搜索，或给授权接口加分页 |
+| 前端现状 | 下拉已提示"最多列出前 100 个"，不会静默漏选 |
 
-### 迭代 3（管理与研究，约 3 组接口）
-8. 用户/授权（P1-8）——消除"医生看不到档案"这类环境性故障
-9. 导入历史（P1-4）+ 随访分页（P1-7）
-10. PDF 导出 / 联系方式 / 系统信息 / 图谱对比（P2）
+### P3-2 随访「按受试者」下拉上限 100
+
+| 项 | 内容 |
+| --- | --- |
+| 现状 | `FollowUpList` 的受试者选择器一次拉 100 条；超过 100 个档案选不到 |
+| 消除条件 | 改为 `el-select remote` 调 `GET /api/subjects?keyword=`（接口已支持），或给下拉加专用搜索端点 |
+
+### P3-3 大屏档案统计上限 2000
+
+| 项 | 内容 |
+| --- | --- |
+| 现状 | `AdminHome` 按 `total` 循环拉取，`MAX_SUBJECT_PAGES = 20` → 最多 2000 条；超出会在"档案总数"指标提示"仅统计前 2000 条"，不再冒充全量 |
+| 消除条件 | 接入 `dashboard/summary`（P2-2）后，计数由后端 `COUNT(*)` 直接给出 |
+
+### P3-4 列表 CSV 导出仅当前页 / 当前筛选
+
+| 项 | 内容 |
+| --- | --- |
+| 现状 | 报告、任务、随访的「导出 CSV」只导当前页数据（最多 20 行），不是全量 |
+| 消除条件 | 后端提供导出接口（CSV 流）或允许 `pageSize=1000`；也可由前端循环翻页后合并（请求数随页数增长） |
+
+### P3-5 受试者搜索仅按档案编号
+
+| 项 | 内容 |
+| --- | --- |
+| 现状 | 后端 `keyword` 只匹配 `s.subject_code`；别名搜索会返回空（页面占位符已注明"按档案编号搜索"） |
+| 消除条件 | 后端把 `keyword` 扩展到 `alias`（`LIKE %kw%`），并转义 `%`/`_` |
+
+### P3-6 审计事件类型需精确匹配
+
+| 项 | 内容 |
+| --- | --- |
+| 现状 | `/api/audit-logs/page` 的 `eventType` 是等值匹配，前端只能输入完整常量（如 `ASSESSMENT_REVIEW`），没有枚举下拉 |
+| 消除条件 | 后端提供事件类型字典（`GET /api/audit-logs/event-types`）或在文档中固化常量列表 |
+
+### P3-7 报告/复核列表缺少风险等级与受试者筛选 UI
+
+| 项 | 内容 |
+| --- | --- |
+| 现状 | 后端 `GET /api/assessments` 已支持 `riskLevel`、`subjectId`、`keyword`，前端目前只用了 `reviewStatus` |
+| 消除条件 | 纯前端工作（不在 P3 上限问题内），可随时补一个筛选条；记录在此避免遗漏 |
 
 ---
 
-## 八、影响面矩阵
+## 附录 A：已完成历史记录（2026-11-07 / 2026-11-08）
 
-| 缺失接口 | 受影响页面 / 组件 | 不做的后果 |
+### A.1 P0-1 评估结果列表（原阻断项，已实现）
+
+**原问题**：`/reviews` 必须手输评估 ID，"全部/待复核"只对已载入的几条做前端过滤，真实"今天有 12 份待复核"无法呈现。
+
+**落地**：`GET /api/assessments` 分页摘要（不含 `agentResult`），支持 `reviewStatus/riskLevel/keyword/subjectId/from/to`；医生看授权档案，ADMIN/RESEARCHER 全量；PATIENT 与 `SUMMARY_READ`-only 医生在列表、任务历史、任务详情上都拿不到 `riskScore/runId`。
+
+**验收**：医生进入 `/reviews` 直接看到待复核列表，无需输入 ID。
+
+### A.2 P0-2 评估任务列表（原阻断项，已实现）
+
+**原问题**：批量评估后刷新即丢，只能记 taskId。
+
+**落地**：`GET /api/assessment-tasks` 分页历史 + `status` 筛选 + `errorCode/message`；任务抽屉展示阶段耗时；`?taskId=` 深链保留。
+
+**验收**：刷新后仍能看到最近任务及失败原因。
+
+### A.3 P0-3 患者个人摘要（原阻断项，已实现）
+
+**原问题**：患者首页写死"等待医生复核"，不管有没有评估。
+
+**落地**：`GET /api/patients/me/summary` 返回脱敏结论、复诊摘要、局限声明；另接 `GET /api/patients/me/doctor` 与 `/api/patients/me/follow-up` 展示主治医生、下次复诊与逾期条数。响应不含 `riskScore`、图权重、解释贡献。
+
+**验收**：患者看到的是"结论句 + 复诊时间 + 医生信息"，不是固定文案。
+
+### A.4 2026-11-08 深度适配完成项
+
+| 能力 | 接口 | 落地 |
 | --- | --- | --- |
-| P0-1 评估列表 | `ReviewBoard`、`ReportList`、`DoctorHome`（待复核数）、`AssessmentPanel`（历史） | 复核流程必须靠记忆 ID；"待办复核"名不副实 |
-| P0-2 任务列表 | `TaskList`、`BatchProgressPanel`（历史）、`DoctorHome` | 批量评估后结果不可回溯 |
-| P0-3 患者摘要 | `PatientHome` | 患者端永远一句话，等于没有功能 |
-| P1-1 keyword | `PatientList`、`FollowUpList`（下拉）、`ImportCenter`（关联档案） | 100 条以上档案无法精确查找；随访选不到第 101 人 |
-| P1-2 审计分页 | `AuditLog`、`AdminHome`（审计流） | 事件累积后页面变慢，无法按人/类型追查 |
-| P1-3 大屏聚合 | `AdminHome` | 指标只统计前 100 条，口径会被质疑 |
-| P1-4 导入历史 | `ImportCenter` | 刷新即丢，无法解释"昨天导了什么" |
-| P1-6 随访待办 | `DoctorHome`、`FollowUpList` | "今日随访"永远空 |
-| P1-8 用户授权 | `UserAdmin`、整个医生端可见性 | 新医生只能靠改数据库授权 |
-| P2-5 图谱对比 | `GraphView` | 研究场景缺少前后对比视角 |
+| 用户管理 | `GET/POST /api/users`、`PATCH /api/users/{id}` | `/admin/users` 真实列表、新增/编辑、角色/状态/资料字段、PATIENT 独立校验 |
+| 档案授权 | `GET/POST /api/subjects/{id}/permissions`、`DELETE .../{id}` | 用户管理页「档案授权」标签页 |
+| 真实 PDF 导出 | `GET /api/reports/{id}/download` | 报告页「下载 PDF」，按角色选 `audience=doctor/research` |
+| 患者医生/随访 | `GET /api/patients/me/doctor`、`/follow-up` | 患者首页医生卡片、复诊与逾期提示 |
+| 服务端筛选 | `GET /api/assessments`、`/assessment-tasks`、`/subjects` | 复核/报告/任务/档案页筛选改服务端 |
+| 审计分页 | `GET /api/audit-logs/page` | `/admin/audit` 服务端分页 + 事件类型/操作人/关键词筛选 |
+| 随访待办 | `GET /api/follow-ups` | `/followups`「全部待办」服务端分页 + `due` 窗口，删除前端 N+1 |
+| 研究证据 | `GET /api/research/evidence`、`/{key}` | 新页面 `/research`（版本、准入、封存报告、模型产物、使用边界） |
 
 ---
 
-## 附：本次扫描的判定依据（可复核）
+## 附录 B：接口设计约定
+
+1. **统一 Envelope** `{ code, message, data, errorCode, traceId, timestamp }`，成功 `code=0`；分页统一 `PageResult<T> { items, page, pageSize, total }`。
+2. **分页**：`page ≥ 1`，`pageSize ∈ [1,100]`，超界钳制；`GET /api/audit-logs` 的数组形态是历史遗留，新代码用 `/api/audit-logs/page`。
+3. **筛选**：统一 `keyword/status/from/to` 命名；服务端过滤先于分页与计数。
+4. **列表不带大字段**：评估列表不带 `agentResult`；需要看图/解释时再取详情。
+5. **权限**：对象级授权在 Java 判定；PATIENT 禁止拿到原始分数/图权重/runId；PATIENT 与其它角色叠加时仍按否决处理。
+6. **审计**：写操作落 `audit_event`；`eventType` 用稳定常量。
+7. **幂等**：创建类接口沿用 `Idempotency-Key`。
+8. **契约同步**：新增/变更必须更新 `contracts/*.openapi.json` 与 `docs/Integration_Contract.md`，并补契约测试。
+
+---
+
+## 附录 C：建议实施顺序
+
+### 第一批（纯前端、价值最高）
+1. P1-1 任务取消/提交
+2. P1-3 导入历史 + 错误 CSV
+3. P1-5 复核历史时间线
+
+### 第二批（数据可信度）
+4. P1-6 质控搜索与分页迁移
+5. P1-2 档案来源与能力
+6. P1-7 档案编辑 + P1-8 数据补录
+
+### 第三批（管理与研究）
+7. P1-9 系统信息、P1-10 用户偏好
+8. P1-11 图谱对比、P1-12 输入快照
+9. P1-4 报告多格式导出
+
+### 待后端/产品解锁
+- P2-1 最近登录（需 V13 字段）
+- P2-2 大屏 summary 口径
+- P2-3 审计 diff
+- P2-5 患者版 PDF
+- P2-6 模型配置
+
+---
+
+## 附录 D：影响面矩阵
+
+| 项 | 受影响页面 | 不做的后果 |
+| --- | --- | --- |
+| P1-1 任务取消/提交 | `TaskList`、`AssessmentPanel` | 任务只能等超时，无法主动终止 |
+| P1-2 来源/能力 | `PatientList` 抽屉 | 无法回答"这条数据从哪来、为什么缺失" |
+| P1-3 导入历史/错误 CSV | `ImportCenter` | 刷新即丢，错误只能逐行看页面 |
+| P1-4 多格式导出 | `ReportList` | 研究归档缺 HTML/JSON |
+| P1-5 复核时间线 | `ReviewBoard` | 改判历史不可追溯 |
+| P1-6 质控搜索 | `QcList` | 只能按状态翻页找记录 |
+| P1-7 档案编辑 | `PatientList` | 别名/状态只能改数据库 |
+| P1-8 数据补录 | `PatientList` | 缺数据只能重新导入整批 |
+| P1-9 系统信息 | `SystemSettings` | 版本信息是构建期常量 |
+| P1-10 用户偏好 | 全局 | 密度/字号/通知不可调 |
+| P1-11 图谱对比 | `GraphView` | 研究场景缺前后对比 |
+| P1-12 输入快照 | `TaskList` | 无法解释历史任务用了什么输入 |
+| P2-1 最近登录 | `UserAdmin` | 无法判断账号是否在用 |
+| P2-2 大屏口径 | `AdminHome` | 指标口径需产品确认 |
+| P3-1/2 前 100 上限 | `UserAdmin`、`FollowUpList` | 超限时选不到（已有提示） |
+| P3-3 大屏 2000 上限 | `AdminHome` | 超大库统计不完整（已有截断提示） |
+| P3-4 导出仅当前页 | 三个列表 | 导出不是全量 |
+| P3-5 仅编号搜索 | `PatientList` | 别名搜索无效 |
+| P3-6 事件类型精确匹配 | `AuditLog` | 需记住常量 |
+| P3-7 风险等级筛选 | `ReportList`/`ReviewBoard` | 少一个筛选维度 |
+
+---
+
+## 附录 E：核对依据
 
 ```bash
-# 前端所有 API 调用点
-grep -rn "await list\|await get\|await create\|await update\|await submit\|await commit" frontend/src/views frontend/src/components
+# 后端实际映射（含新 Controller）
+grep -rn "@GetMapping\|@PostMapping\|@PatchMapping\|@DeleteMapping" backend/src/main/java --include=*Controller.java
 
-# 手输 ID 入口
-grep -rn "输入评估 ID\|输入任务 ID\|inputId" frontend/src/views
+# 前端调用面
+grep -rn "from '@/api/" frontend/src/views frontend/src/components
 
-# 前端本地过滤（假装搜索/统计）
-grep -rn "\.filter(" frontend/src/views frontend/src/components
+# 前端本地过滤/写死上限（应持续减少）
+grep -rn "\.filter(\|pageSize: 100\|PAGE_SIZE\|MAX_SUBJECT_PAGES" frontend/src/views frontend/src/components
 
-# 写死的取样上限
-grep -rn "pageSize: 100\|PAGE_SIZE" frontend/src
-
-# 契约操作清单
-node -e "const c=require('./contracts/java-business.target.openapi.json');console.log(Object.keys(c.paths).length)"
+# 构建与回归
+cd frontend && npm run build
+node scripts/e2e-roles.mjs
+node scripts/e2e-task-list.mjs
+node scripts/e2e-graph-interaction.mjs
 ```
 
 ---
 
-**结论一句话**：前端已经把"没有接口"的地方都做成了**可解释的降级**（提示、空态、口径说明），但这些降级叠加起来，会让系统在评审眼里像"能点但不好用"。补上迭代 1 的 3 个接口，体验会有质变；补完迭代 1+2，才算"100% 体验完善"。
+**一句话结论**：P0 已清零，P1 是"后端已就绪、前端补入口"的 12 项纯前端工作；P2 是 7 项需要字段或口径决策的事项；P3 是 7 项有明确消除条件的已知上限。下一阶段按附录 C 的第一批开工即可。
