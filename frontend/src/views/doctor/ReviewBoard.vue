@@ -39,22 +39,22 @@
       />
 
       <el-table v-else :data="items" class="table" row-key="assessmentId" @keydown.enter="onRowKeydown">
-        <el-table-column prop="assessmentId" label="评估 ID" width="100" />
-        <el-table-column prop="subjectId" label="受试者" width="100" />
-        <el-table-column label="风险概率" width="120">
+        <el-table-column prop="assessmentId" label="评估 ID" min-width="100" />
+        <el-table-column prop="subjectId" label="受试者" min-width="100" />
+        <el-table-column label="风险概率" min-width="120">
           <template #default="{ row }">{{ formatScore(row) }}</template>
         </el-table-column>
-        <el-table-column label="等级" width="120">
+        <el-table-column label="等级" min-width="120">
           <template #default="{ row }">
             <StatusTag :type="row.riskLevel || 'UNAVAILABLE'" />
           </template>
         </el-table-column>
-        <el-table-column label="复核状态" width="150">
+        <el-table-column label="复核状态" min-width="150">
           <template #default="{ row }">
             <StatusTag :type="row.reviewStatus" :label="reviewLabel(row.reviewStatus)" />
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" width="160">
+        <el-table-column label="创建时间" min-width="160">
           <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="170" fixed="right">

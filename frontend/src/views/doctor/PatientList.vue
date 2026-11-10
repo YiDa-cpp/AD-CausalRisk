@@ -969,6 +969,8 @@ async function loadTimeline() {
     followUps.value = []
   } finally {
     timelineLoading.value = false
+    // loadTimeline 负责随访数据，必须复位，否则「概览」摘要和「就诊与随访记录」会一直停在骨架屏
+    followUpLoading.value = false
   }
 }
 

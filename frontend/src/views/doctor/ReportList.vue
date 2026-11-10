@@ -45,22 +45,22 @@
         @row-click="openReport"
         @keydown.enter="onRowKeydown"
       >
-        <el-table-column prop="assessmentId" label="评估 ID" width="100" />
-        <el-table-column prop="subjectId" label="受试者" width="100" />
-        <el-table-column label="风险概率" width="120">
+        <el-table-column prop="assessmentId" label="评估 ID" min-width="100" />
+        <el-table-column prop="subjectId" label="受试者" min-width="100" />
+        <el-table-column label="风险概率" min-width="120">
           <template #default="{ row }">{{ formatScore(row) }}</template>
         </el-table-column>
-        <el-table-column label="等级" width="120">
+        <el-table-column label="等级" min-width="120">
           <template #default="{ row }">
             <StatusTag :type="row.riskLevel || 'UNAVAILABLE'" />
           </template>
         </el-table-column>
-        <el-table-column label="复核状态" width="140">
+        <el-table-column label="复核状态" min-width="140">
           <template #default="{ row }">
             <StatusTag :type="row.reviewStatus" :label="statusLabel(row.reviewStatus)" />
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" width="170">
+        <el-table-column label="创建时间" min-width="170">
           <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="140" fixed="right">
