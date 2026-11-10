@@ -144,6 +144,12 @@ try {
   check('关键解释渲染', reportText.includes('APOE ε4 携带'), '')
   check('免责声明存在', reportText.includes('不构成诊断'), '')
 
+  // 报告页是独立路由，ECharts 异步初始化，给它一点时间再数 canvas
+  await page
+    .waitForFunction(() => document.querySelectorAll('.sheet .causal-graph canvas').length === 1, {
+      timeout: 10000
+    })
+    .catch(() => {})
   const canvas = await page.evaluate(() => document.querySelectorAll('.sheet .causal-graph canvas').length)
   check('报告内嵌因果图', canvas === 1, `canvas=${canvas}`)
 

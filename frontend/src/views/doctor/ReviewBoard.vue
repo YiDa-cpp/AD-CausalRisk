@@ -13,7 +13,7 @@
     <DataCard padding="none">
       <div class="filter">
         <span class="filter__count">共 {{ total }} 条 · 当前页 {{ items.length }} 条</span>
-        <span class="filter__hint">状态筛选仅作用于当前页</span>
+        <span class="filter__hint">筛选由服务端完成</span>
       </div>
 
       <el-skeleton v-if="firstLoading" :rows="5" animated />

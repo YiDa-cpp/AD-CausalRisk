@@ -125,7 +125,7 @@
       v-model="drawerOpen"
       :title="selected?.alias || '档案概览'"
       direction="rtl"
-      size="720px"
+      :size="drawerSize"
       destroy-on-close
       class="patient-drawer"
       :close-on-press-escape="true"
@@ -148,6 +148,186 @@
             {{ formatTime(selected.createdAt) }}
           </el-descriptions-item>
         </el-descriptions>
+
+        <!-- 患者 360° 总体评估记录：建档 / 就诊 / 评估 / 复核 / 随访 按时间倒序聚合 -->
+        <div class="drawer__section timeline-section">
+          <header class="timeline__head">
+            <h3 class="timeline__title">患者 360° 总体评估记录</h3>
+            <span class="timeline__count">
+              共 {{ timeline.length }} 条 · 最新在前
+            </span>
+            <el-button text size="small" :loading="timelineLoading" @click="loadTimeline">
+              刷新
+            </el-button>
+          </header>
+
+          <el-skeleton v-if="timelineLoading && timeline.length === 0" :rows="4" animated />
+
+          <EmptyState
+            v-else-if="timeline.length === 0"
+            :icon="Timer"
+            title="还没有生命周期记录"
+            description="建档、访视、评估、复核与随访事件会按时间汇总在这里。"
+          />
+
+          <el-timeline v-else class="timeline">
+            <el-timeline-item
+              v-for="event in timeline"
+              :key="event.key"
+              :timestamp="event.timeLabel"
+              :color="event.color"
+              :hollow="event.type !== 'ASSESSMENT'"
+              placement="top"
+              class="timeline__item"
+              @click="selectEvent(event)"
+            >
+              <div class="timeline__card" :class="{ 'is-active': activeEvent?.key === event.key }">
+                <div class="timeline__row">
+                  <el-icon class="timeline__icon" :style="{ color: event.color }">
+                    <component :is="event.icon" />
+                  </el-icon>
+                  <span class="timeline__type">{{ event.typeLabel }}</span>
+                  <span class="timeline__summary">{{ event.summary }}</span>
+                  <StatusTag
+                    v-if="event.statusType"
+                    :type="event.statusType"
+                    :label="event.statusLabel"
+                  />
+                </div>
+                <p v-if="event.detail" class="timeline__detail">{{ event.detail }}</p>
+                <p v-if="event.hint" class="timeline__hint">{{ event.hint }}</p>
+              </div>
+            </el-timeline-item>
+          </el-timeline>
+
+          <p
+            v-if="timeline.length === 1 && timeline[0].type === 'SUBJECT'"
+            class="timeline__empty-hint"
+          >
+            目前只有建档记录；后续就诊、评估、复核与随访事件会按时间汇总在这里。
+          </p>
+        </div>
+
+        <!-- 选中事件详情：评估展示图与解释，复核展示意见，访视/随访展示明细 -->
+        <div v-if="activeEvent" class="drawer__section">
+          <section class="event-detail">
+            <header class="event-detail__head">
+              <h3 class="event-detail__title">{{ activeEvent.typeLabel }}详情</h3>
+              <span class="event-detail__time">{{ activeEvent.timeLabel }}</span>
+              <el-button text size="small" @click="activeEvent = null">收起</el-button>
+            </header>
+
+            <template v-if="activeEvent.type === 'ASSESSMENT'">
+              <el-skeleton v-if="assessmentDetailLoading" :rows="3" animated />
+              <template v-else-if="assessmentDetail">
+                <div class="event-detail__facts">
+                  <span>风险概率 <strong>{{ formatScore(assessmentDetail) }}</strong></span>
+                  <span>
+                    等级
+                    <StatusTag :type="assessmentDetail.agentResult?.riskLevel || 'UNAVAILABLE'" />
+                  </span>
+                  <span>模型 {{ assessmentDetail.agentResult?.modelVersion || '—' }}</span>
+                  <span>质控 {{ assessmentDetail.agentResult?.qualityStatus || '—' }}</span>
+                </div>
+                <ul
+                  v-if="assessmentDetail.agentResult?.explanations?.length"
+                  class="event-detail__list"
+                >
+                  <li
+                    v-for="(item, index) in assessmentDetail.agentResult.explanations"
+                    :key="index"
+                  >
+                    <strong>{{ item.label || item.feature }}</strong>
+                    {{ item.interpretation || item.message }}
+                  </li>
+                </ul>
+                <CausalGraph
+                  v-if="assessmentDetail.agentResult?.graph"
+                  :graph="assessmentDetail.agentResult.graph"
+                  :height="260"
+                />
+                <div class="event-detail__actions">
+                  <el-button size="small" type="primary" @click="openReport(activeEvent)">
+                    查看完整报告
+                  </el-button>
+                </div>
+              </template>
+              <EmptyState
+                v-else
+                :icon="WarningFilled"
+                title="评估详情载入失败"
+                description="请稍后重试，或直接查看完整报告。"
+              >
+                <template #default>
+                  <el-button size="small" @click="openReport(activeEvent)">查看完整报告</el-button>
+                </template>
+              </EmptyState>
+            </template>
+
+            <template v-else-if="activeEvent.type === 'REVIEW'">
+              <p class="event-detail__comment">
+                {{ activeEvent.comment || '本次复核没有留下文字意见。' }}
+              </p>
+              <p class="event-detail__meta">
+                复核状态：{{ activeEvent.statusLabel || '—' }} · 复核人：{{
+                  activeEvent.reviewerName || '—'
+                }}
+              </p>
+            </template>
+
+            <template v-else-if="activeEvent.type === 'VISIT'">
+              <el-descriptions :column="2" border size="small">
+                <el-descriptions-item label="访视编号">
+                  {{ activeEvent.visit?.visitCode || '—' }}
+                </el-descriptions-item>
+                <el-descriptions-item label="访视日期">
+                  {{ activeEvent.visit?.visitDate || '—' }}
+                </el-descriptions-item>
+                <el-descriptions-item label="MMSE">
+                  {{ activeEvent.visit?.mmse ?? '—' }}
+                </el-descriptions-item>
+                <el-descriptions-item label="MoCA">
+                  {{ activeEvent.visit?.moca ?? '—' }}
+                </el-descriptions-item>
+                <el-descriptions-item label="CDR-SB">
+                  {{ activeEvent.visit?.cdrSb ?? '—' }}
+                </el-descriptions-item>
+              </el-descriptions>
+            </template>
+
+            <template v-else-if="activeEvent.type === 'FOLLOWUP'">
+              <el-descriptions :column="2" border size="small">
+                <el-descriptions-item label="计划时间">
+                  {{ formatTime(activeEvent.at) }}
+                </el-descriptions-item>
+                <el-descriptions-item label="状态">
+                  <StatusTag :type="activeEvent.statusType" />
+                </el-descriptions-item>
+                <el-descriptions-item label="目的" :span="2">
+                  {{ activeEvent.followUp?.purpose || '—' }}
+                </el-descriptions-item>
+              </el-descriptions>
+            </template>
+
+            <template v-else>
+              <el-descriptions :column="2" border size="small">
+                <el-descriptions-item label="档案编号">
+                  {{ selected.subjectCode }}
+                </el-descriptions-item>
+                <el-descriptions-item label="别名">{{ selected.alias || '—' }}</el-descriptions-item>
+                <el-descriptions-item label="状态">
+                  <StatusTag :type="selected.status" />
+                </el-descriptions-item>
+                <el-descriptions-item label="数据版本">
+                  {{ selected.dataVersion || '—' }}
+                </el-descriptions-item>
+                <el-descriptions-item label="建档时间" :span="2">
+                  {{ formatTime(selected.createdAt) }}
+                </el-descriptions-item>
+              </el-descriptions>
+            </template>
+          </section>
+        </div>
 
         <div class="drawer__section">
           <AssessmentPanel :subject-id="selected.id" @reviewed="onReviewed" />
@@ -195,29 +375,49 @@
       v-if="selected"
       v-model="followUpDialogOpen"
       :subject-id="selected.id"
-      @created="loadFollowUps"
+      @created="onFollowUpCreated"
     />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Loading, Refresh, Search, Timer, User, WarningFilled } from '@element-plus/icons-vue'
+import {
+  ChatDotRound,
+  DataAnalysis,
+  DocumentAdd,
+  FirstAidKit,
+  Loading,
+  Refresh,
+  Search,
+  Timer,
+  User,
+  WarningFilled
+} from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DataCard from '@/components/common/DataCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import AssessmentPanel from '@/components/doctor/AssessmentPanel.vue'
 import VisitHistory from '@/components/doctor/VisitHistory.vue'
+import CausalGraph from '@/components/charts/CausalGraph.vue'
 import FollowUpDialog from '@/components/followup/FollowUpDialog.vue'
 import { getSubjectDetail, listSubjects } from '@/api/subjects.js'
 import { listFollowUps } from '@/api/followups.js'
+import {
+  getAssessment,
+  getAssessmentReviews,
+  listAssessments,
+  listAssessmentTasks
+} from '@/api/assessments.js'
 import { useUserStore } from '@/stores/user.js'
 import { useTableKeyboard } from '@/composables/useTableKeyboard.js'
 import { useEscapeToClose } from '@/composables/useEscapeToClose.js'
 import { useBatchAssessmentStore } from '@/stores/batch.js'
 
+const router = useRouter()
 const userStore = useUserStore()
 const batch = useBatchAssessmentStore()
 
@@ -236,6 +436,15 @@ const detailLoading = ref(false)
 const followUps = ref([])
 const followUpLoading = ref(false)
 const followUpDialogOpen = ref(false)
+
+// ---- 患者 360° 时间线 ----
+const timeline = ref([])
+const timelineLoading = ref(false)
+const activeEvent = ref(null)
+const assessmentDetail = ref(null)
+const assessmentDetailLoading = ref(false)
+const isNarrow = ref(false)
+const drawerSize = computed(() => (isNarrow.value ? '100%' : '760px'))
 
 /** 只有研究员需要批量评估：表格才显示多选列与批量工具条。 */
 const canBatch = computed(() => userStore.primaryRole === 'RESEARCHER')
@@ -314,8 +523,9 @@ async function load() {  const seq = (requestSeq += 1)
 function openDrawer(row) {
   selected.value = row
   drawerOpen.value = true
-  loadDetail(row.id)
-  loadFollowUps()
+  activeEvent.value = null
+  assessmentDetail.value = null
+  loadTimeline()
 }
 
 const { onRowKeydown } = useTableKeyboard(items, openDrawer)
@@ -361,9 +571,246 @@ async function loadDetail(subjectId) {
   }
 }
 
-/** 复核成功：刷新列表，保证列表与抽屉状态一致。 */
+const TASK_STATUS = {
+  PENDING: '排队中',
+  RUNNING: '计算中',
+  COMPLETED: '已完成',
+  FAILED: '失败',
+  CANCELLED: '已取消',
+  BLOCKED: '被阻断'
+}
+const REVIEW_STATUS = {
+  PENDING: '待复核',
+  ACKNOWLEDGED: '已确认',
+  NEEDS_DATA: '要求补充数据',
+  REJECTED: '已驳回'
+}
+const RISK_LEVEL = { HIGH: '高风险', MEDIUM: '中风险', LOW: '低风险', UNAVAILABLE: '不可用' }
+const FOLLOWUP_STATUS = { PLANNED: '已计划', COMPLETED: '已完成', CANCELLED: '已取消' }
+
+function taskStatusLabel(status) {
+  return TASK_STATUS[status] || status || '—'
+}
+function reviewStatusLabel(status) {
+  return REVIEW_STATUS[status] || status || '—'
+}
+function riskLabel(level) {
+  return RISK_LEVEL[level] || level || '不可用'
+}
+function followUpStatusLabel(status) {
+  return FOLLOWUP_STATUS[status] || status || '—'
+}
+
+function formatScore(item) {
+  const value =
+    typeof item?.riskScore === 'number'
+      ? item.riskScore
+      : typeof item?.agentResult?.riskScore === 'number'
+        ? item.agentResult.riskScore
+        : null
+  return value === null ? '不可用' : `${(value * 100).toFixed(1)}%`
+}
+
+/**
+ * 打开抽屉时并发拉取全生命周期数据：
+ *  - GET /api/subjects/{id}（基础信息 + 访视）
+ *  - GET /api/assessments?subjectId=（评估历史）
+ *  - GET /api/assessment-tasks?subjectId=（任务状态，用于评估事件）
+ *  - GET /api/follow-ups?subjectId=（随访记录，契约的按受试者查询）
+ *  - 每个评估的 GET /api/assessments/{id}/reviews（复核意见，最多并发 20 条）
+ * 合并后按时间倒序渲染；任一接口失败只影响对应类型的事件。
+ */
+async function loadTimeline() {
+  const subjectId = selected.value?.id
+  if (!subjectId) return
+  timelineLoading.value = true
+  activeEvent.value = null
+  assessmentDetail.value = null
+  try {
+    const [detailRes, assessRes, taskRes, followRes] = await Promise.allSettled([
+      getSubjectDetail(subjectId),
+      listAssessments({ subjectId, pageSize: 100 }),
+      listAssessmentTasks({ subjectId, pageSize: 100 }),
+      listFollowUps(subjectId)
+    ])
+    // 抽屉已经切到别人：丢弃过期响应
+    if (selected.value?.id !== subjectId) return
+
+    const detail = detailRes.status === 'fulfilled' ? detailRes.value : null
+    visits.value = Array.isArray(detail?.visits) ? detail.visits : []
+    const followList =
+      followRes.status === 'fulfilled' && Array.isArray(followRes.value) ? followRes.value : []
+    followUps.value = followList
+      .slice()
+      .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))
+
+    const assessments =
+      assessRes.status === 'fulfilled' && Array.isArray(assessRes.value?.items)
+        ? assessRes.value.items
+        : []
+    const tasks =
+      taskRes.status === 'fulfilled' && Array.isArray(taskRes.value?.items)
+        ? taskRes.value.items
+        : []
+    const taskById = new Map(tasks.map((task) => [task.taskId, task]))
+
+    const events = []
+    const subject = detail?.subject || selected.value
+
+    if (subject?.createdAt) {
+      events.push({
+        type: 'SUBJECT',
+        at: subject.createdAt,
+        timeLabel: formatTime(subject.createdAt),
+        color: '#909399',
+        icon: DocumentAdd,
+        typeLabel: '建档',
+        summary: `建档 ${subject.subjectCode || ''}`.trim(),
+        detail: `别名 ${subject.alias || '—'} · 数据版本 ${subject.dataVersion || '—'}`
+      })
+    }
+
+    for (const visit of visits.value) {
+      events.push({
+        type: 'VISIT',
+        at: visit.visitDate,
+        timeLabel: formatTime(visit.visitDate),
+        color: '#13c2c2',
+        icon: FirstAidKit,
+        typeLabel: '就诊',
+        summary: `就诊 ${visit.visitCode || ''}`.trim(),
+        detail: [
+          visit.mmse !== null && visit.mmse !== undefined ? `MMSE ${visit.mmse}` : '',
+          visit.moca !== null && visit.moca !== undefined ? `MoCA ${visit.moca}` : '',
+          visit.cdrSb !== null && visit.cdrSb !== undefined ? `CDR-SB ${visit.cdrSb}` : ''
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        visit
+      })
+    }
+
+    for (const assessment of assessments) {
+      const task = taskById.get(assessment.taskId)
+      const level = assessment.riskLevel || 'UNAVAILABLE'
+      events.push({
+        type: 'ASSESSMENT',
+        at: assessment.createdAt,
+        timeLabel: formatTime(assessment.createdAt),
+        color: level === 'HIGH' ? '#f56c6c' : '#409eff',
+        icon: DataAnalysis,
+        typeLabel: '评估',
+        summary: `评估 #${assessment.assessmentId} · ${formatScore(assessment)} · ${riskLabel(level)}`,
+        detail: `任务 #${assessment.taskId}${
+          task?.status ? ` · 任务状态 ${taskStatusLabel(task.status)}` : ''
+        } · 复核 ${reviewStatusLabel(assessment.reviewStatus)}`,
+        statusType: level,
+        assessmentId: assessment.assessmentId,
+        raw: assessment
+      })
+    }
+
+    // 复核历史：每个评估一次请求，最多 20 个，失败忽略
+    const reviewTargets = assessments.slice(0, 20)
+    const reviewResults = await Promise.allSettled(
+      reviewTargets.map((assessment) => getAssessmentReviews(assessment.assessmentId))
+    )
+    reviewResults.forEach((result, index) => {
+      if (result.status !== 'fulfilled' || !Array.isArray(result.value)) return
+      const assessment = reviewTargets[index]
+      for (const review of result.value) {
+        if (!review?.reviewedAt) continue
+        events.push({
+          type: 'REVIEW',
+          at: review.reviewedAt,
+          timeLabel: formatTime(review.reviewedAt),
+          color: '#b37feb',
+          icon: ChatDotRound,
+          typeLabel: '复核',
+          summary: `复核 #${review.assessmentId ?? assessment?.assessmentId}：${reviewStatusLabel(
+            review.decision
+          )}`,
+          detail: review.comment ? String(review.comment).slice(0, 80) : '',
+          comment: review.comment,
+          statusLabel: reviewStatusLabel(review.decision),
+          statusType: review.decision,
+          reviewerName: review.reviewerName,
+          assessmentId: review.assessmentId ?? assessment?.assessmentId
+        })
+      }
+    })
+
+    for (const followUp of followList) {
+      const overdue =
+        followUp.status === 'PLANNED' &&
+        followUp.scheduledAt &&
+        new Date(followUp.scheduledAt).getTime() < Date.now()
+      events.push({
+        type: 'FOLLOWUP',
+        at: followUp.scheduledAt,
+        timeLabel: formatTime(followUp.scheduledAt),
+        color: followUp.status === 'CANCELLED' ? '#909399' : overdue ? '#f56c6c' : '#67c23a',
+        icon: Timer,
+        typeLabel: '随访',
+        summary: `随访：${followUp.purpose || '未填写目的'}`,
+        detail: overdue ? '已逾期' : '',
+        statusType: followUp.status,
+        statusLabel: followUpStatusLabel(followUp.status),
+        followUp
+      })
+    }
+
+    events.sort((a, b) => {
+      const ta = new Date(a.at).getTime()
+      const tb = new Date(b.at).getTime()
+      if (Number.isNaN(ta) && Number.isNaN(tb)) return 0
+      if (Number.isNaN(ta)) return 1
+      if (Number.isNaN(tb)) return -1
+      return tb - ta
+    })
+    timeline.value = events.map((event, index) => ({ ...event, key: `${event.type}-${index}` }))
+  } catch {
+    timeline.value = []
+    visits.value = []
+    followUps.value = []
+  } finally {
+    timelineLoading.value = false
+  }
+}
+
+function selectEvent(event) {
+  activeEvent.value = event
+  if (event.type === 'ASSESSMENT' && event.assessmentId) loadAssessmentDetail(event.assessmentId)
+}
+
+async function loadAssessmentDetail(assessmentId) {
+  assessmentDetailLoading.value = true
+  assessmentDetail.value = null
+  try {
+    const data = await getAssessment(assessmentId)
+    // 用户可能已经点了别的评估
+    if (activeEvent.value?.assessmentId === assessmentId) assessmentDetail.value = data
+  } catch {
+    assessmentDetail.value = null
+  } finally {
+    assessmentDetailLoading.value = false
+  }
+}
+
+function openReport(event) {
+  const id = event?.assessmentId
+  if (id) router.push(`/reports/${id}`)
+}
+
+/** 复核成功：刷新列表与时间线，保证状态一致。 */
 function onReviewed() {
   load()
+  loadTimeline()
+}
+
+/** 新建随访成功：刷新随访列表与时间线。 */
+function onFollowUpCreated() {
+  loadTimeline()
 }
 
 const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
@@ -380,7 +827,19 @@ function formatTime(value) {
   return Number.isNaN(date.getTime()) ? '—' : timeFormatter.format(date)
 }
 
-onMounted(load)
+function onResize() {
+  isNarrow.value = window.innerWidth < 900
+}
+
+onMounted(() => {
+  isNarrow.value = window.innerWidth < 900
+  window.addEventListener('resize', onResize, { passive: true })
+  load()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', onResize)
+})
 </script>
 
 <style scoped>
@@ -522,5 +981,177 @@ onMounted(load)
 
 .drawer__section {
   margin-top: 16px;
+}
+
+/* ---- 患者 360° 时间线 ---- */
+.timeline-section {
+  padding-top: 4px;
+}
+
+.timeline__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.timeline__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.timeline__count {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.timeline__head .el-button {
+  margin-left: auto;
+}
+
+.timeline {
+  padding-left: 4px;
+}
+
+.timeline__item {
+  cursor: pointer;
+}
+
+.timeline__card {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: #fff;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.timeline__card:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-card);
+}
+
+.timeline__card.is-active {
+  border-color: var(--brand-600);
+  box-shadow: 0 0 0 2px var(--brand-50);
+}
+
+.timeline__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.timeline__icon {
+  font-size: 16px;
+}
+
+.timeline__type {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-700);
+}
+
+.timeline__summary {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.timeline__detail {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.timeline__hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.timeline__empty-hint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+/* ---- 选中事件详情 ---- */
+.event-detail {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--bg-soft);
+}
+
+.event-detail__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.event-detail__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.event-detail__time {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.event-detail__head .el-button {
+  margin-left: auto;
+}
+
+.event-detail__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--ink-700);
+}
+
+.event-detail__list {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink-700);
+}
+
+.event-detail__comment {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+.event-detail__meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.event-detail__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+@media (max-width: 900px) {
+  .timeline__head .el-button {
+    margin-left: 0;
+  }
 }
 </style>

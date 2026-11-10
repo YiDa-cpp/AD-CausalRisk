@@ -301,9 +301,6 @@ function loadRememberedAccount() {
     const raw = window.localStorage.getItem(REMEMBER_PREFIX + props.currentRole)
     if (!raw) {
       remember.value = false
-      // 切换到没有记住凭据的身份时，避免把上一个身份的账号/密码带过来
-      username.value = ''
-      password.value = ''
       return
     }
     // 兼容旧版本：以前只存了用户名字符串

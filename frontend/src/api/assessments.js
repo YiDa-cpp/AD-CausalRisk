@@ -88,6 +88,14 @@ export function getAssessment(assessmentId) {
   return request.get(`/assessments/${assessmentId}`)
 }
 
+/**
+ * GET /api/assessments/{assessmentId}/reviews —— 复核历史（最新在前）。
+ * 每行：{ id, assessmentId, reviewerId, decision, comment, reviewedAt, reviewerName }
+ */
+export function getAssessmentReviews(assessmentId) {
+  return request.get(`/assessments/${assessmentId}/reviews`)
+}
+
 /** POST /api/assessments/{assessmentId}/review —— comment 必填（≤2000 字）。 */
 export function reviewAssessment(assessmentId, decision, comment) {
   return request.post(`/assessments/${assessmentId}/review`, { decision, comment })

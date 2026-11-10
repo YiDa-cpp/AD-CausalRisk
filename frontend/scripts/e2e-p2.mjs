@@ -139,7 +139,11 @@ try {
   // ---------------- 医生：档案列表 ----------------
   let subjectItems = []
   const page = await openAs('doctor', [
-    { match: (path, m) => path === '/api/subjects' && m === 'GET', body: () => ({ items: subjectItems, page: 1, pageSize: 20, total: subjectItems.length }) }
+    { match: (path, m) => path === '/api/subjects' && m === 'GET', body: () => ({ items: subjectItems, page: 1, pageSize: 20, total: subjectItems.length }) },
+    // 抽屉打开时会拉基础信息 + 评估/任务/随访/复核；这里给空数据，避免打到不存在的后端
+    { match: (path, m) => /^\/api\/subjects\/\d+$/.test(path) && m === 'GET', body: () => ({ subject: SUBJECT(1), visits: [], features: [] }) },
+    { match: (path) => path === '/api/assessments' || path === '/api/assessment-tasks', body: () => ({ items: [], page: 1, pageSize: 100, total: 0 }) },
+    { match: (path) => path === '/api/subjects/1/follow-ups' || path.startsWith('/api/') && path.endsWith('/reviews'), body: () => [] }
   ])
 
   check('doctor: 菜单可点击进入档案', await clickMenu(page, '受试者档案'), 'sidebar item')
@@ -164,6 +168,10 @@ try {
 
   await page.click('.el-table__row')
   await page.waitForSelector('.el-drawer', { timeout: 10000 })
+  await page.waitForFunction(
+    () => (document.querySelector('.el-drawer__title')?.textContent || '').includes('样本 1'),
+    { timeout: 10000 }
+  ).catch(() => {})
   const drawerTitle = await page.evaluate(() => document.querySelector('.el-drawer__title, .el-drawer__header')?.textContent || '')
   check('doctor: 抽屉打开且带档案信息', drawerTitle.includes('样本 1'), drawerTitle.trim().slice(0, 40))
   await page.screenshot({ path: join(shotDir, 'p2-subject-drawer.png') })
