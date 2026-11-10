@@ -240,6 +240,19 @@ try {
   await page.waitForFunction(() => document.body.textContent.includes('83.0%'), { timeout: 30000 })
   check('风险概率渲染 83.0%', true, '')
 
+  // 新评估完成后抽屉会自动切到「全量报告库」，切回「概览与操作」再检查结果详情与复核入口
+  await page.evaluate(() => {
+    const tab = [...document.querySelectorAll('.drawer-tabs .el-tabs__item')].find((n) =>
+      n.textContent.includes('概览与操作')
+    )
+    tab?.click()
+  })
+  await page
+    .waitForFunction(() => document.querySelectorAll('.causal-graph__canvas canvas').length > 0, {
+      timeout: 15000
+    })
+    .catch(() => {})
+
   const levelText = await page.evaluate(
     () => document.querySelector('.score__side')?.textContent.replace(/\s+/g, ' ') || ''
   )

@@ -137,7 +137,9 @@
           <span class="drawer__code">{{ selected.subjectCode }}</span>
         </div>
 
-        <el-descriptions :column="2" border class="drawer__desc">
+        <el-tabs v-model="drawerTab" class="drawer-tabs">
+          <el-tab-pane label="概览与操作" name="overview">
+            <el-descriptions :column="2" border class="drawer__desc">
           <el-descriptions-item label="别名">{{ selected.alias }}</el-descriptions-item>
           <el-descriptions-item label="档案编号">{{ selected.subjectCode }}</el-descriptions-item>
           <el-descriptions-item label="状态">
@@ -149,8 +151,84 @@
           </el-descriptions-item>
         </el-descriptions>
 
-        <!-- 患者 360° 总体评估记录：建档 / 就诊 / 评估 / 复核 / 随访 按时间倒序聚合 -->
-        <div class="drawer__section timeline-section">
+            <div class="drawer__section">
+              <AssessmentPanel
+                :subject-id="selected.id"
+                @reviewed="onReviewed"
+                @completed="onAssessmentCompleted"
+              />
+            </div>
+
+            <div class="drawer__section">
+              <section class="followup followup--compact">
+                <header class="followup__head">
+                  <h3 class="followup__title">随访</h3>
+                  <el-button size="small" type="primary" @click="followUpDialogOpen = true">
+                    新建随访
+                  </el-button>
+                </header>
+                <p class="followup__hint">{{ followUpSummaryText }}</p>
+              </section>
+            </div>
+          </el-tab-pane>
+
+          <!-- Tab 2：全量报告库（所有历史评估报告集中管理） -->
+          <el-tab-pane label="全量报告库" name="reports">
+            <div class="reports-head">
+              <span class="reports-count">共 {{ reportLibrary.length }} 份报告</span>
+              <el-radio-group v-model="reportSort" size="small">
+                <el-radio-button label="timeDesc">最新优先</el-radio-button>
+                <el-radio-button label="timeAsc">最早优先</el-radio-button>
+                <el-radio-button label="riskDesc">风险高→低</el-radio-button>
+                <el-radio-button label="riskAsc">风险低→高</el-radio-button>
+              </el-radio-group>
+              <el-button text size="small" :loading="timelineLoading" @click="loadTimeline">
+                刷新
+              </el-button>
+            </div>
+
+            <el-skeleton v-if="timelineLoading && reportLibrary.length === 0" :rows="4" animated />
+
+            <EmptyState
+              v-else-if="reportLibrary.length === 0"
+              :icon="Document"
+              title="还没有评估报告"
+              description="在「概览与操作」里发起评估，完成后报告会自动汇总到这里。"
+            />
+
+            <div v-else class="report-cards">
+              <article
+                v-for="item in sortedReports"
+                :key="item.assessmentId"
+                class="report-card"
+              >
+                <div class="report-card__main">
+                  <p class="report-card__time">{{ formatTime(item.createdAt) }}</p>
+                  <p class="report-card__window">
+                    预测窗口 {{ item.predictionWindowMonths ?? '—' }} 个月
+                  </p>
+                  <p class="report-card__score">{{ formatScore(item) }}</p>
+                  <div class="report-card__badges">
+                    <StatusTag :type="item.riskLevel || 'UNAVAILABLE'" />
+                    <StatusTag
+                      :type="item.reviewStatus"
+                      :label="reviewStatusLabel(item.reviewStatus)"
+                    />
+                  </div>
+                </div>
+                <div class="report-card__actions">
+                  <el-button size="small" @click="openPreview(item)">快速预览</el-button>
+                  <el-button size="small" type="primary" @click="openReport(item)">
+                    查看完整报告
+                  </el-button>
+                </div>
+              </article>
+            </div>
+          </el-tab-pane>
+
+          <!-- Tab 3：生命周期 -->
+          <el-tab-pane label="生命周期" name="lifecycle">
+            <div class="drawer__section timeline-section">
           <header class="timeline__head">
             <h3 class="timeline__title">患者 360° 总体评估记录</h3>
             <span class="timeline__count">
@@ -328,13 +406,16 @@
             </template>
           </section>
         </div>
+          </el-tab-pane>
 
-        <div class="drawer__section">
-          <AssessmentPanel :subject-id="selected.id" @reviewed="onReviewed" />
-        </div>
+          <!-- Tab 4：就诊与随访记录 -->
+          <el-tab-pane label="就诊与随访记录" name="records">
+            <div class="drawer__section">
+              <VisitHistory :visits="visits" :loading="detailLoading" />
+            </div>
 
-        <div class="drawer__section">
-          <section class="followup">
+            <div class="drawer__section">
+              <section class="followup">
             <header class="followup__head">
               <h3 class="followup__title">随访计划</h3>
               <el-button size="small" type="primary" @click="followUpDialogOpen = true">
@@ -364,12 +445,72 @@
             </el-table>
           </section>
         </div>
-
-        <div class="drawer__section">
-          <VisitHistory :visits="visits" :loading="detailLoading" />
-        </div>
+          </el-tab-pane>
+        </el-tabs>
       </template>
     </el-drawer>
+
+    <!-- 快速预览：报告库里的次级弹窗，展示因果图与关键解释 -->
+    <el-dialog
+      v-model="previewOpen"
+      :title="previewItem ? `快速预览 · 评估 #${previewItem.assessmentId}` : '快速预览'"
+      width="760px"
+      destroy-on-close
+      append-to-body
+      class="report-preview"
+    >
+      <el-skeleton v-if="previewLoading" :rows="5" animated />
+      <template v-else-if="previewDetail">
+        <div class="preview-facts">
+          <div><span>风险概率</span><strong>{{ formatScore(previewDetail) }}</strong></div>
+          <div>
+            <span>风险等级</span>
+            <StatusTag :type="previewDetail.agentResult?.riskLevel || 'UNAVAILABLE'" />
+          </div>
+          <div>
+            <span>预测窗口</span>
+            {{ previewDetail.agentResult?.predictionWindowMonths ?? '—' }} 个月
+          </div>
+          <div>
+            <span>复核状态</span>
+            <StatusTag
+              :type="previewDetail.reviewStatus"
+              :label="reviewStatusLabel(previewDetail.reviewStatus)"
+            />
+          </div>
+        </div>
+        <ul
+          v-if="previewDetail.agentResult?.explanations?.length"
+          class="preview-list"
+        >
+          <li v-for="(item, index) in previewDetail.agentResult.explanations" :key="index">
+            <strong>{{ item.label || item.feature }}</strong>
+            {{ item.interpretation || item.message }}
+          </li>
+        </ul>
+        <CausalGraph
+          v-if="previewDetail.agentResult?.graph"
+          :graph="previewDetail.agentResult.graph"
+          :height="300"
+        />
+      </template>
+      <EmptyState
+        v-else
+        :icon="WarningFilled"
+        title="预览载入失败"
+        description="可以直接打开完整报告查看。"
+      />
+      <template #footer>
+        <el-button @click="previewOpen = false">关闭</el-button>
+        <el-button
+          type="primary"
+          :disabled="!previewItem"
+          @click="previewOpen = false; openReport(previewItem)"
+        >
+          查看完整报告
+        </el-button>
+      </template>
+    </el-dialog>
 
     <FollowUpDialog
       v-if="selected"
@@ -387,6 +528,7 @@ import { ElMessage } from 'element-plus'
 import {
   ChatDotRound,
   DataAnalysis,
+  Document,
   DocumentAdd,
   FirstAidKit,
   Loading,
@@ -445,6 +587,54 @@ const assessmentDetail = ref(null)
 const assessmentDetailLoading = ref(false)
 const isNarrow = ref(false)
 const drawerSize = computed(() => (isNarrow.value ? '100%' : '760px'))
+
+// ---- 档案库（Tabs） ----
+const drawerTab = ref('overview')
+const reportLibrary = ref([])
+const reportSort = ref('timeDesc')
+const reportDetailMap = ref({})
+const previewOpen = ref(false)
+const previewItem = ref(null)
+const previewDetail = ref(null)
+const previewLoading = ref(false)
+
+const RISK_RANK = { HIGH: 3, MEDIUM: 2, LOW: 1, UNAVAILABLE: 0 }
+
+/** 报告库排序：时间或风险等级（同等级再按时间倒序）。 */
+const sortedReports = computed(() => {
+  const list = reportLibrary.value.slice()
+  const time = (item) => {
+    const value = new Date(item.createdAt).getTime()
+    return Number.isNaN(value) ? 0 : value
+  }
+  switch (reportSort.value) {
+    case 'timeAsc':
+      return list.sort((a, b) => time(a) - time(b))
+    case 'riskDesc':
+      return list.sort(
+        (a, b) =>
+          (RISK_RANK[b.riskLevel] || 0) - (RISK_RANK[a.riskLevel] || 0) || time(b) - time(a)
+      )
+    case 'riskAsc':
+      return list.sort(
+        (a, b) =>
+          (RISK_RANK[a.riskLevel] || 0) - (RISK_RANK[b.riskLevel] || 0) || time(b) - time(a)
+      )
+    default:
+      return list.sort((a, b) => time(b) - time(a))
+  }
+})
+
+const followUpSummaryText = computed(() => {
+  if (followUpLoading.value) return '正在读取随访安排…'
+  if (!followUps.value.length) return '还没有随访安排，点击「新建随访」安排复诊。'
+  const next =
+    followUps.value.find((item) => item.status === 'PLANNED') ||
+    followUps.value[followUps.value.length - 1]
+  return `共 ${followUps.value.length} 次随访；下一次：${formatTime(next?.scheduledAt)}${
+    next?.purpose ? `（${next.purpose}）` : ''
+  }`
+})
 
 /** 只有研究员需要批量评估：表格才显示多选列与批量工具条。 */
 const canBatch = computed(() => userStore.primaryRole === 'RESEARCHER')
@@ -535,8 +725,8 @@ useEscapeToClose(
   () => {
     drawerOpen.value = false
   },
-  // 抽屉里开着「新建随访」对话框时，Esc 只关对话框，不关底层档案
-  () => followUpDialogOpen.value
+  // 抽屉里开着「新建随访」对话框或报告预览时，Esc 只关上层，不关底层档案
+  () => followUpDialogOpen.value || previewOpen.value
 )
 
 /** 抽屉里的随访：GET /api/subjects/{subjectId}/follow-ups */
@@ -624,6 +814,7 @@ async function loadTimeline() {
   const subjectId = selected.value?.id
   if (!subjectId) return
   timelineLoading.value = true
+  followUpLoading.value = true
   activeEvent.value = null
   assessmentDetail.value = null
   try {
@@ -648,6 +839,9 @@ async function loadTimeline() {
       assessRes.status === 'fulfilled' && Array.isArray(assessRes.value?.items)
         ? assessRes.value.items
         : []
+    // 报告库与生命周期共用同一份评估历史；窗口月份由详情异步补齐
+    reportLibrary.value = assessments.map((assessment) => ({ ...assessment }))
+    loadReportDetails(assessments)
     const tasks =
       taskRes.status === 'fulfilled' && Array.isArray(taskRes.value?.items)
         ? taskRes.value.items
@@ -800,6 +994,48 @@ async function loadAssessmentDetail(assessmentId) {
 function openReport(event) {
   const id = event?.assessmentId
   if (id) router.push(`/reports/${id}`)
+}
+
+/** 逐个补齐报告库卡片需要的详情字段（预测窗口），失败保持"—"。 */
+async function loadReportDetails(assessments) {
+  const targets = assessments.slice(0, 20)
+  if (!targets.length) return
+  const results = await Promise.allSettled(
+    targets.map((assessment) => getAssessment(assessment.assessmentId))
+  )
+  results.forEach((result, index) => {
+    if (result.status !== 'fulfilled' || !result.value) return
+    const id = targets[index].assessmentId
+    reportDetailMap.value[id] = result.value
+    const row = reportLibrary.value.find((item) => item.assessmentId === id)
+    if (row && row.predictionWindowMonths === undefined) {
+      row.predictionWindowMonths = result.value.agentResult?.predictionWindowMonths
+    }
+  })
+}
+
+/** 快速预览：优先用缓存详情，避免重复请求。 */
+async function openPreview(item) {
+  if (!item?.assessmentId) return
+  previewItem.value = item
+  previewOpen.value = true
+  previewLoading.value = true
+  previewDetail.value = null
+  try {
+    previewDetail.value =
+      reportDetailMap.value[item.assessmentId] || (await getAssessment(item.assessmentId))
+    if (previewDetail.value) reportDetailMap.value[item.assessmentId] = previewDetail.value
+  } catch {
+    previewDetail.value = null
+  } finally {
+    previewLoading.value = false
+  }
+}
+
+/** 发起评估完成：切到报告库并刷新列表。 */
+function onAssessmentCompleted() {
+  drawerTab.value = 'reports'
+  loadTimeline()
 }
 
 /** 复核成功：刷新列表与时间线，保证状态一致。 */
@@ -1151,6 +1387,150 @@ onBeforeUnmount(() => {
 
 @media (max-width: 900px) {
   .timeline__head .el-button {
+    margin-left: 0;
+  }
+}
+
+/* ---- 档案库 Tabs ---- */
+.drawer-tabs :deep(.el-tabs__content) {
+  padding-top: 4px;
+}
+
+.drawer-tabs :deep(.el-tab-pane) {
+  padding-bottom: 4px;
+}
+
+.followup--compact {
+  padding: 14px 16px;
+}
+
+.followup__hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.reports-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 4px 0 14px;
+}
+
+.reports-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.reports-head .el-button {
+  margin-left: auto;
+}
+
+.report-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.report-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: #fff;
+}
+
+.report-card__main {
+  min-width: 0;
+}
+
+.report-card__time {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.report-card__window {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--soft);
+}
+
+.report-card__score {
+  margin: 6px 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 700;
+  color: var(--brand-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.report-card__badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.report-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.report-card__actions .el-button + .el-button {
+  margin-left: 0;
+}
+
+.preview-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 16px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--ink-700);
+}
+
+.preview-facts span {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 11px;
+  color: var(--soft);
+}
+
+.preview-facts strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--brand-700);
+}
+
+.preview-list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink-700);
+}
+
+@media (max-width: 900px) {
+  .report-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .report-card__actions {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+
+  .reports-head .el-button {
     margin-left: 0;
   }
 }

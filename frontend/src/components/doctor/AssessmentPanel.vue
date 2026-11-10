@@ -169,7 +169,7 @@ import {
 const props = defineProps({
   subjectId: { type: [Number, String], required: true }
 })
-const emit = defineEmits(['reviewed'])
+const emit = defineEmits(['reviewed', 'completed'])
 
 const POLL_MS = 2000
 const MAX_WAIT_MS = 3 * 60 * 1000
@@ -379,6 +379,8 @@ async function finish(latest) {
       phase.value = 'done'
       // 已出结果：这次意图闭环，清掉持久化键，下一次点击是全新评估
       closeIntent()
+      // 通知外层（档案抽屉）切到报告库并刷新
+      emit('completed', assessment.value)
       return
     } catch (problem) {
       fail('任务完成但结果读取失败', problem?.message || '请稍后重试。')
