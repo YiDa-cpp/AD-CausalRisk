@@ -266,7 +266,7 @@ async function openTask(row) {
 }
 
 function goReport() {
-  router.push({ path: '/reports', query: { assessmentId: detail.value.assessmentId } })
+  router.push(`/reports/${detail.value.assessmentId}`)
 }
 
 const { onRowKeydown } = useTableKeyboard(items, openTask)

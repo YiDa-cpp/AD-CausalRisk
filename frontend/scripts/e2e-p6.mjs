@@ -153,7 +153,7 @@ try {
     window.print = () => {
       called = true
     }
-    const btn = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('打印报告'))
+    const btn = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('打印'))
     btn?.click()
     window.print = original
     return called

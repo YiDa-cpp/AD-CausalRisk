@@ -95,7 +95,13 @@ const routes = [
     path: '/reports',
     name: 'ReportList',
     component: () => import('../views/doctor/ReportList.vue'),
-    meta: { title: '评估报告', layout: 'sidebar', roles: ['DOCTOR', 'RESEARCHER'] }
+    meta: { title: '评估报告', layout: 'sidebar', roles: ['DOCTOR', 'RESEARCHER', 'ADMIN'] }
+  },
+  {
+    path: '/reports/:assessmentId(\\d+)',
+    name: 'ReportDetail',
+    component: () => import('../views/doctor/ReportDetail.vue'),
+    meta: { title: '评估报告', layout: 'sidebar', roles: ['DOCTOR', 'RESEARCHER', 'ADMIN'] }
   },
   {
     path: '/graph',

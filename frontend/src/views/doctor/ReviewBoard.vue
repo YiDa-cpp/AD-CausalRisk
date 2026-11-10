@@ -253,7 +253,7 @@ async function loadPage(target = page.value) {
 }
 
 function openReport(row) {
-  router.push({ path: '/reports', query: { assessmentId: row.assessmentId } })
+  router.push(`/reports/${row.assessmentId}`)
 }
 
 async function openReview(row) {
