@@ -183,15 +183,16 @@ try {
   check('图谱页显示节点/边统计', stageText.includes('4 个节点') && stageText.includes('3 条关联'), stageText.slice(0, 60))
   check('图谱 canvas 渲染', true, 'canvas=1')
 
-  await page.evaluate(() => {
-    const btn = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('沉浸查看'))
-    btn?.click()
+  // 图谱现在以右侧抽屉打开：先断言抽屉内容，再关闭
+  const drawerOpened = await page.evaluate(() => Boolean(document.querySelector('.el-drawer .stage')))
+  check('图谱以抽屉打开', drawerOpened, '')
+  await page.evaluate(() => document.querySelector('.el-drawer__close-btn')?.click())
+  await sleep(700)
+  const drawerClosed = await page.evaluate(() => {
+    const overlay = document.querySelector('.el-overlay')
+    return !overlay || getComputedStyle(overlay).display === 'none'
   })
-  await sleep(600)
-  const immersive = await page.evaluate(() =>
-    document.querySelector('.stage')?.classList.contains('stage--immersive')
-  )
-  check('沉浸模式切换', immersive === true, '')
+  check('图谱抽屉可关闭', drawerClosed, '')
   await page.screenshot({ path: join(shotDir, 'p6-graph.png') })
 
   check('无页面异常', errors.length === 0, errors[0] || 'none')

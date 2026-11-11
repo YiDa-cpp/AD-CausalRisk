@@ -1,7 +1,7 @@
 <template>
   <section class="history-wall">
     <header class="history-wall__head">
-      <h3 class="history-wall__title">历史打开的图谱</h3>
+      <h3 class="history-wall__title">最近打开</h3>
       <span class="history-wall__meta">共 {{ history.length }} 张 · 点击卡片直接载入</span>
       <el-button text size="small" @click="emit('clear')">清空</el-button>
     </header>
@@ -18,7 +18,7 @@
         @keydown.enter="emit('open', item)"
       >
         <div class="history-card__thumb">
-          <CausalGraph :graph="item.graph" :height="150" />
+          <CausalGraph :graph="item.graph" :height="140" compact />
         </div>
         <div class="history-card__body">
           <p class="history-card__title">评估 #{{ item.assessmentId }}</p>
@@ -91,7 +91,7 @@ function formatTime(value) {
 
 .history-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 14px;
 }
 
@@ -126,11 +126,17 @@ function formatTime(value) {
 }
 
 .history-card__thumb {
-  height: 150px;
+  position: relative;
+  height: 140px;
+  overflow: hidden;
   background: linear-gradient(160deg, #f2fbff 0%, #ffffff 100%);
   border-bottom: 1px solid var(--line);
   /* 缩略图只是预览，点击交给卡片 */
   pointer-events: none;
+}
+
+.history-card__thumb :deep(.causal-graph) {
+  height: 140px;
 }
 
 .history-card__body {
