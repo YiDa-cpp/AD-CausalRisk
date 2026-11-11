@@ -68,22 +68,35 @@
         <span>runId {{ assessment?.agentResult?.runId || '—' }}</span>
       </footer>
     </section>
+
+    <!-- 历史打开过的图谱：图片墙，点击即可重新载入 -->
+    <GraphHistoryWall
+      v-if="history.length"
+      :history="history"
+      :active-id="assessment?.assessmentId ?? null"
+      @open="openHistory"
+      @clear="clearHistory"
+    />
   </div>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Close, FullScreen, RefreshRight, Share, WarningFilled } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import CausalGraph from '@/components/charts/CausalGraph.vue'
+import GraphHistoryWall from '@/components/charts/GraphHistoryWall.vue'
 import { getAssessment } from '@/api/assessments.js'
 
 const route = useRoute()
 const router = useRouter()
+
+const HISTORY_KEY = 'adc-causalrisk:graph-history'
+const HISTORY_LIMIT = 12
 
 const inputId = ref('')
 const loading = ref(false)
@@ -93,6 +106,8 @@ const graphKey = ref(0)
 const viewportHeight = ref(window.innerHeight)
 /** 载入失败的原文（null = 没有错误） */
 const loadError = ref('')
+/** 本地历史图谱（最多 12 张，含缩略图所需的 graph） */
+const history = ref([])
 
 /** 请求序号守卫：只让最新的载入请求写状态 */
 let requestSeq = 0
@@ -134,6 +149,11 @@ async function load() {
     ElMessage.warning('请输入有效的评估 ID')
     return
   }
+  await loadAssessment(id)
+}
+
+/** 载入一张图谱：成功则写入历史并把 URL 同步为 ?assessmentId=，便于返回时恢复。 */
+async function loadAssessment(id) {
   // 请求序号：连续载入两个 ID 时，只有最后一次的响应能写入页面
   const seq = ++requestSeq
   loading.value = true
@@ -142,6 +162,9 @@ async function load() {
     const data = await getAssessment(id)
     if (seq !== requestSeq) return
     assessment.value = data
+    inputId.value = String(id)
+    rememberHistory(data)
+    router.replace({ query: { ...route.query, assessmentId: String(id) } })
     if (!data?.agentResult?.graph?.nodes?.length) {
       ElMessage.warning('这次评估没有返回因果图（可能被 BLOCKED）')
     }
@@ -153,6 +176,73 @@ async function load() {
   } finally {
     if (seq === requestSeq) loading.value = false
   }
+}
+
+/** 读取本机历史图谱。 */
+function readHistory() {
+  try {
+    const raw = window.localStorage.getItem(HISTORY_KEY)
+    const list = raw ? JSON.parse(raw) : []
+    return Array.isArray(list) ? list.filter((item) => item?.graph?.nodes?.length) : []
+  } catch {
+    return []
+  }
+}
+
+/** 记入历史（按评估 ID 去重、最新在前、最多 12 张）。 */
+function rememberHistory(data) {
+  const graph = data?.agentResult?.graph
+  if (!graph?.nodes?.length) return
+  const entry = {
+    assessmentId: data.assessmentId,
+    subjectId: data.subjectId,
+    riskLevel: data.agentResult?.riskLevel || 'UNAVAILABLE',
+    createdAt: data.createdAt,
+    nodeCount: graph.nodes.length,
+    edgeCount: (graph.edges || []).length,
+    graph,
+    savedAt: new Date().toISOString()
+  }
+  const next = [entry, ...history.value.filter((item) => item.assessmentId !== entry.assessmentId)].slice(
+    0,
+    HISTORY_LIMIT
+  )
+  history.value = next
+  try {
+    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
+  } catch {
+    // 配额不足：只保留最近几张，避免整页不可用
+    try {
+      window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next.slice(0, 6)))
+    } catch {
+      // 忽略
+    }
+  }
+}
+
+function openHistory(item) {
+  if (!item?.assessmentId) return
+  loadAssessment(item.assessmentId)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+async function clearHistory() {
+  try {
+    await ElMessageBox.confirm('清空后只影响本机浏览历史，不影响评估数据。确定清空吗？', '清空历史图谱', {
+      confirmButtonText: '清空',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch {
+    return
+  }
+  history.value = []
+  try {
+    window.localStorage.removeItem(HISTORY_KEY)
+  } catch {
+    // 忽略
+  }
+  ElMessage.success('已清空历史图谱')
 }
 
 /** 把后端的 400/403/404/网络错误翻译成页面上的可读提示。 */
@@ -167,10 +257,11 @@ function describeLoadError(problem, id) {
 onMounted(() => {
   window.addEventListener('resize', onResize)
   window.addEventListener('keydown', onKeydown)
+  history.value = readHistory()
   const fromQuery = route.query.assessmentId
   if (fromQuery) {
     inputId.value = String(fromQuery)
-    load()
+    loadAssessment(Number(fromQuery))
   }
 })
 

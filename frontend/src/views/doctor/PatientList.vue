@@ -522,8 +522,8 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   ChatDotRound,
@@ -560,6 +560,7 @@ import { useEscapeToClose } from '@/composables/useEscapeToClose.js'
 import { useBatchAssessmentStore } from '@/stores/batch.js'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const batch = useBatchAssessmentStore()
 
@@ -716,7 +717,17 @@ function openDrawer(row) {
   activeEvent.value = null
   assessmentDetail.value = null
   loadTimeline()
+  // 打开哪个档案就写到 URL：从报告/图谱返回时可以直接恢复抽屉
+  if (row?.id) router.replace({ query: { ...route.query, subjectId: String(row.id) } })
 }
+
+// 关闭抽屉时清掉 URL 上的 subjectId
+watch(drawerOpen, (open) => {
+  if (open || !route.query.subjectId) return
+  const query = { ...route.query }
+  delete query.subjectId
+  router.replace({ query })
+})
 
 const { onRowKeydown } = useTableKeyboard(items, openDrawer)
 
@@ -1069,10 +1080,24 @@ function onResize() {
   isNarrow.value = window.innerWidth < 900
 }
 
-onMounted(() => {
+onMounted(async () => {
   isNarrow.value = window.innerWidth < 900
   window.addEventListener('resize', onResize, { passive: true })
-  load()
+  await load()
+  // 深链恢复：从报告/图谱返回时带 ?subjectId=，直接打开对应档案抽屉
+  const subjectId = Number(route.query.subjectId)
+  if (!Number.isInteger(subjectId) || subjectId <= 0) return
+  const row = items.value.find((item) => item.id === subjectId)
+  if (row) {
+    openDrawer(row)
+    return
+  }
+  try {
+    const detail = await getSubjectDetail(subjectId)
+    if (detail?.subject) openDrawer(detail.subject)
+  } catch {
+    // 无权限或档案不存在：保持列表视图
+  }
 })
 
 onBeforeUnmount(() => {

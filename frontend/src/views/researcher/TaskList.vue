@@ -150,7 +150,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Cpu, Download, Refresh, WarningFilled } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -251,6 +251,8 @@ async function openTask(row) {
   detail.value = null
   detailLoading.value = true
   drawerOpen.value = true
+  // 打开的任务写入 URL，返回时可以直接恢复这个抽屉
+  router.replace({ query: { ...route.query, taskId: String(row.taskId) } })
   try {
     const data = await getAssessmentTask(row.taskId)
     // 迟到的响应（用户已经点了别的任务）必须丢掉，否则抽屉内容和按钮会指向旧任务
@@ -274,6 +276,14 @@ const { onRowKeydown } = useTableKeyboard(items, openTask)
 useEscapeToClose(drawerOpen, () => {
   detail.value = null
   drawerOpen.value = false
+})
+
+// 关闭抽屉时清掉 URL 上的 taskId，避免"看起来关掉了、返回又自己弹出来"
+watch(drawerOpen, (open) => {
+  if (open || !route.query.taskId) return
+  const query = { ...route.query }
+  delete query.taskId
+  router.replace({ query })
 })
 
 function exportCsv() {

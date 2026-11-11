@@ -17,3 +17,10 @@ app.use(pinia)
 app.use(router)
 
 app.mount('#app')
+
+// 首屏加载动画：Vue 挂载完成后淡出并移除
+const boot = document.getElementById('boot')
+if (boot) {
+  boot.classList.add('app-boot--done')
+  window.setTimeout(() => boot.remove(), 420)
+}

@@ -91,20 +91,21 @@
         <p class="meta">
           来源 {{ activeReport.source || '—' }} · SHA-256 {{ activeReport.sha256 || '—' }}
         </p>
-        <pre class="markdown">{{ activeReport.markdown || '（没有可显示的正文）' }}</pre>
+        <div class="markdown-body" v-html="renderedMarkdown"></div>
       </template>
     </el-drawer>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, WarningFilled } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DataCard from '@/components/common/DataCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { getResearchEvidence, getResearchReport } from '@/api/research.js'
+import { renderMarkdown } from '@/utils/markdown.js'
 import { useEscapeToClose } from '@/composables/useEscapeToClose.js'
 
 const catalog = ref(null)
@@ -114,6 +115,11 @@ const error = ref('')
 const drawerOpen = ref(false)
 const reportLoading = ref(false)
 const activeReport = ref(null)
+
+/** Markdown → 安全 HTML（工具已做转义，链接仅 http(s)） */
+const renderedMarkdown = computed(() =>
+  renderMarkdown(activeReport.value?.markdown || '（没有可显示的正文）')
+)
 
 function admissionLabel(value) {
   if (value === 'NO_GO_INDEPENDENT_EVIDENCE_INCOMPLETE') return '暂不纳入（个体证据不完整）'
@@ -208,16 +214,120 @@ onMounted(load)
   word-break: break-all;
 }
 
-.markdown {
-  margin: 0;
-  padding: 16px;
+.markdown-body {
+  padding: 18px 20px;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--bg-soft);
-  font-size: 12.5px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.75;
   color: var(--ink-700);
+  word-break: break-word;
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3),
+.markdown-body :deep(h4) {
+  margin: 18px 0 8px;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.markdown-body :deep(h1) {
+  font-size: 20px;
+}
+
+.markdown-body :deep(h2) {
+  font-size: 17px;
+}
+
+.markdown-body :deep(h3) {
+  font-size: 15px;
+}
+
+.markdown-body :deep(h4) {
+  font-size: 14px;
+}
+
+.markdown-body :deep(p) {
+  margin: 8px 0;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.markdown-body :deep(li) {
+  margin: 4px 0;
+}
+
+.markdown-body :deep(strong) {
+  color: var(--ink);
+}
+
+.markdown-body :deep(code) {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(10, 115, 173, 0.08);
+  font-family: var(--font-display);
+  font-size: 12px;
+}
+
+.markdown-body :deep(pre) {
+  margin: 10px 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  border-radius: var(--r-sm);
+  background: #0f2533;
+  color: #e6f4fb;
+}
+
+.markdown-body :deep(pre code) {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.markdown-body :deep(blockquote) {
+  margin: 10px 0;
+  padding: 6px 14px;
+  border-left: 3px solid var(--brand-600);
+  color: var(--muted);
+  background: rgba(10, 115, 173, 0.04);
+}
+
+.markdown-body :deep(hr) {
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.markdown-body :deep(table) {
+  width: 100%;
+  margin: 10px 0;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown-body :deep(th) {
+  background: var(--brand-50);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.markdown-body :deep(a) {
+  color: var(--brand-600);
+  text-decoration: underline;
 }
 </style>

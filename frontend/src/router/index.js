@@ -144,7 +144,8 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior: () => ({ top: 0 })
+  // 浏览器后退时恢复原来的滚动位置；普通跳转回到顶部
+  scrollBehavior: (to, from, savedPosition) => savedPosition || { top: 0 }
 })
 
 router.beforeEach((to) => {

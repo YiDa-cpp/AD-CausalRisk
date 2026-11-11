@@ -14,9 +14,54 @@
       */
       #app { display: contents; }
       html, body { margin: 0; padding: 0; }
+        /* 首屏 / 刷新加载动画：Vue 挂载后由 main.js 移除 */
+        .app-boot {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 18px;
+          background: radial-gradient(1200px 600px at 50% 20%, #eaf7ff 0%, #f4fbff 42%, #f8fdff 100%);
+          transition: opacity 360ms ease;
+        }
+        .app-boot--done { opacity: 0; pointer-events: none; }
+        .app-boot__ring {
+          width: 46px;
+          height: 46px;
+          border-radius: 50%;
+          border: 3px solid rgba(10, 115, 173, 0.16);
+          border-top-color: #0a73ad;
+          animation: app-boot-spin 900ms linear infinite;
+        }
+        .app-boot__text {
+          margin: 0;
+          font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+          font-size: 15px;
+          font-weight: 700;
+          letter-spacing: 0.4px;
+          color: #0a3c55;
+          text-align: center;
+        }
+        .app-boot__text span {
+          display: block;
+          margin-top: 6px;
+          font-size: 12px;
+          font-weight: 400;
+          letter-spacing: 0.2px;
+          color: #5c7c8d;
+        }
+        @keyframes app-boot-spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .app-boot__ring { animation: none; } }
     </style>
   </head>
   <body>
+    <div id="boot" class="app-boot" aria-live="polite">
+      <span class="app-boot__ring" aria-hidden="true"></span>
+      <p class="app-boot__text">AD-CausalRisk<span>正在载入工作台…</span></p>
+    </div>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>

@@ -152,7 +152,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Document, Refresh, WarningFilled } from '@element-plus/icons-vue'
@@ -264,6 +264,8 @@ async function openReview(row) {
     current.value = detail
     comment.value = ''
     drawerOpen.value = true
+    // 打开哪条复核就写到 URL：从报告页返回时能直接回到这个抽屉
+    router.replace({ query: { ...route.query, assessmentId: String(row.assessmentId) } })
   } catch {
     // request.js 已提示（403/400）
   } finally {
@@ -276,6 +278,14 @@ const { onRowKeydown } = useTableKeyboard(items, openReview)
 
 useEscapeToClose(drawerOpen, () => {
   drawerOpen.value = false
+})
+
+// 关闭时清掉 URL 上的 assessmentId
+watch(drawerOpen, (open) => {
+  if (open || !route.query.assessmentId) return
+  const query = { ...route.query }
+  delete query.assessmentId
+  router.replace({ query })
 })
 
 async function submitReview(decision) {
