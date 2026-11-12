@@ -14,54 +14,149 @@
       */
       #app { display: contents; }
       html, body { margin: 0; padding: 0; }
-        /* 首屏 / 刷新加载动画：Vue 挂载后由 main.js 移除 */
-        .app-boot {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 18px;
-          background: radial-gradient(1200px 600px at 50% 20%, #eaf7ff 0%, #f4fbff 42%, #f8fdff 100%);
-          transition: opacity 360ms ease;
-          pointer-events: none;
-        }
-        .app-boot--done { opacity: 0; pointer-events: none; }
-        .app-boot__ring {
-          width: 46px;
-          height: 46px;
-          border-radius: 50%;
-          border: 3px solid rgba(10, 115, 173, 0.16);
-          border-top-color: #0a73ad;
-          animation: app-boot-spin 900ms linear infinite;
-        }
-        .app-boot__text {
-          margin: 0;
-          font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
-          font-size: 15px;
-          font-weight: 700;
-          letter-spacing: 0.4px;
-          color: #0a3c55;
-          text-align: center;
-        }
-        .app-boot__text span {
-          display: block;
-          margin-top: 6px;
-          font-size: 12px;
-          font-weight: 400;
-          letter-spacing: 0.2px;
-          color: #5c7c8d;
-        }
-        @keyframes app-boot-spin { to { transform: rotate(360deg); } }
-        @media (prefers-reduced-motion: reduce) { .app-boot__ring { animation: none; } }
+
+      /* 首屏 / 刷新加载动画：brain + 二进制环，Vue 挂载后由 main.js 移除 */
+      .app-boot {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        background: #fbfefe;
+        transition: opacity 360ms ease;
+        pointer-events: none;
+      }
+      .app-boot--done { opacity: 0; }
+      .boot-logo {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        width: 210px;
+      }
+      .boot-svg { width: 210px; height: 210px; overflow: visible; }
+      .boot-digits {
+        transform-origin: 120px 120px;
+        animation: boot-ring-spin 28s linear infinite;
+      }
+      .boot-digits text {
+        font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        font-size: 7.5px;
+        letter-spacing: 1.6px;
+        fill: #a9c9c6;
+      }
+      .boot-arc {
+        fill: none;
+        stroke-linecap: round;
+        stroke-width: 2;
+        transform-origin: 120px 120px;
+      }
+      .boot-arc--a {
+        stroke: #7cc8c5;
+        stroke-dasharray: 70 560;
+        animation: boot-ring-spin 7.5s linear infinite;
+      }
+      .boot-arc--b {
+        stroke: #a7dbd7;
+        stroke-dasharray: 34 560;
+        animation: boot-ring-spin 11s linear infinite reverse;
+      }
+      .boot-disc {
+        fill: #eff9f8;
+        stroke: #d8eeeb;
+        stroke-width: 1;
+      }
+      .boot-brain__shape {
+        fill: #d9f0ed;
+        stroke: #2f8f8d;
+        stroke-width: 2.6;
+        stroke-linejoin: round;
+      }
+      .boot-brain__folds {
+        fill: none;
+        stroke: #67b8b4;
+        stroke-width: 1.7;
+        stroke-linecap: round;
+        opacity: 0.9;
+      }
+      .boot-brain__links {
+        stroke: #67b8b4;
+        stroke-width: 1.2;
+        opacity: 0.75;
+      }
+      .boot-brain__nodes circle {
+        fill: #3a9b98;
+        stroke: #e8f7f5;
+        stroke-width: 1.2;
+      }
+      .boot-label {
+        margin: 0;
+        font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        color: #3f6f6c;
+        text-align: center;
+      }
+      .boot-dots i {
+        font-style: normal;
+        animation: boot-dot 1.25s ease-in-out infinite;
+      }
+      .boot-dots i:nth-child(2) { animation-delay: 0.18s; }
+      .boot-dots i:nth-child(3) { animation-delay: 0.36s; }
+      @keyframes boot-ring-spin { to { transform: rotate(360deg); } }
+      @keyframes boot-dot {
+        0%, 100% { opacity: 0.15; }
+        40% { opacity: 1; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-digits, .boot-arc, .boot-dots i { animation-duration: 60s; }
+      }
     </style>
   </head>
   <body>
     <div id="boot" class="app-boot" aria-live="polite">
-      <span class="app-boot__ring" aria-hidden="true"></span>
-      <p class="app-boot__text">AD-CausalRisk<span>正在载入工作台…</span></p>
+      <div class="boot-logo">
+        <svg class="boot-svg" viewBox="0 0 240 240" aria-hidden="true">
+          <defs>
+            <path id="boot-digit-ring" d="M120,26 a94,94 0 1,1 -0.01,0" />
+          </defs>
+          <g class="boot-digits">
+            <text>
+              <textPath href="#boot-digit-ring" startOffset="0">0100101101001011010010110100101101001011010010110100101101001011010010110100101101001011010010110100101101001011</textPath>
+            </text>
+          </g>
+          <circle class="boot-arc boot-arc--a" cx="120" cy="120" r="103" />
+          <circle class="boot-arc boot-arc--b" cx="120" cy="120" r="103" />
+          <circle class="boot-disc" cx="120" cy="120" r="64" />
+          <g class="boot-brain">
+            <path class="boot-brain__shape" d="M116,76 C104,68 88,72 82,86 C68,92 62,108 70,122 C64,136 72,152 90,154 C98,164 110,164 116,156 Z" />
+            <path class="boot-brain__shape" d="M124,76 C136,68 152,72 158,86 C172,92 178,108 170,122 C176,136 168,152 150,154 C142,164 130,164 124,156 Z" />
+            <g class="boot-brain__folds">
+              <path d="M92,94 C84,104 86,116 94,124" />
+              <path d="M110,88 C104,102 106,118 112,130" />
+              <path d="M148,94 C156,104 154,116 146,124" />
+              <path d="M130,88 C136,102 134,118 128,130" />
+            </g>
+            <g class="boot-brain__links">
+              <line x1="100" y1="104" x2="118" y2="96" />
+              <line x1="118" y1="96" x2="140" y2="104" />
+              <line x1="100" y1="104" x2="108" y2="136" />
+              <line x1="140" y1="104" x2="132" y2="136" />
+              <line x1="108" y1="136" x2="132" y2="136" />
+              <line x1="118" y1="96" x2="120" y2="122" />
+            </g>
+            <g class="boot-brain__nodes">
+              <circle cx="100" cy="104" r="3.2" />
+              <circle cx="118" cy="96" r="3.2" />
+              <circle cx="140" cy="104" r="3.2" />
+              <circle cx="108" cy="136" r="3.2" />
+              <circle cx="132" cy="136" r="3.2" />
+            </g>
+          </g>
+        </svg>
+        <p class="boot-label">正在载入工作台<span class="boot-dots"><i>.</i><i>.</i><i>.</i></span></p>
+      </div>
     </div>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
