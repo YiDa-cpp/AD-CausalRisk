@@ -1,66 +1,40 @@
 <template>
   <div class="neuro-loader" :style="{ '--loader-size': `${size}px` }">
     <svg class="neuro-loader__svg" viewBox="0 0 240 240" role="img" :aria-label="label">
-      <defs>
-        <path id="neuro-digit-ring" d="M120,26 a94,94 0 1,1 -0.01,0" />
-      </defs>
-
-      <!-- 外圈：二进制数字环（缓慢旋转） -->
-      <g class="neuro-ring neuro-ring--digits">
-        <text class="neuro-ring__text">
-          <textPath href="#neuro-digit-ring" startOffset="0">
-            0100101101001011010010110100101101001011010010110100101101001011010010110100101101001011010010110100101101001011
-          </textPath>
-        </text>
-      </g>
-
-      <!-- 两段细弧线，反向旋转 -->
-      <circle class="neuro-arc neuro-arc--a" cx="120" cy="120" r="103" />
-      <circle class="neuro-arc neuro-arc--b" cx="120" cy="120" r="103" />
-
-      <!-- 徽标底盘 -->
-      <circle class="neuro-disc" cx="120" cy="120" r="64" />
-
-      <!-- 手绘大脑（左右半球）+ 网络节点 -->
-      <g class="neuro-brain">
-        <path
-          class="neuro-brain__shape"
-          d="M116,76
-             C104,68 88,72 82,86
-             C68,92 62,108 70,122
-             C64,136 72,152 90,154
-             C98,164 110,164 116,156 Z"
-        />
-        <path
-          class="neuro-brain__shape"
-          d="M124,76
-             C136,68 152,72 158,86
-             C172,92 178,108 170,122
-             C176,136 168,152 150,154
-             C142,164 130,164 124,156 Z"
-        />
-        <g class="neuro-brain__folds">
-          <path d="M92,94 C84,104 86,116 94,124" />
-          <path d="M110,88 C104,102 106,118 112,130" />
-          <path d="M148,94 C156,104 154,116 146,124" />
-          <path d="M130,88 C136,102 134,118 128,130" />
-        </g>
-        <g class="neuro-brain__links">
-          <line x1="100" y1="104" x2="118" y2="96" />
-          <line x1="118" y1="96" x2="140" y2="104" />
-          <line x1="100" y1="104" x2="108" y2="136" />
-          <line x1="140" y1="104" x2="132" y2="136" />
-          <line x1="108" y1="136" x2="132" y2="136" />
-          <line x1="118" y1="96" x2="120" y2="122" />
-        </g>
-        <g class="neuro-brain__nodes">
-          <circle cx="100" cy="104" r="3.2" />
-          <circle cx="118" cy="96" r="3.2" />
-          <circle cx="140" cy="104" r="3.2" />
-          <circle cx="108" cy="136" r="3.2" />
-          <circle cx="132" cy="136" r="3.2" />
-        </g>
-      </g>
+          <defs>
+            <path id="neuro-digit-ring" d="M120,20 a100,100 0 1,1 -0.01,0" />
+          </defs>
+          <circle class="neuro-outline" cx="120" cy="120" r="110" />
+          <g class="neuro-ring">
+            <text>
+              <textPath href="#neuro-digit-ring" startOffset="0">01001011010001001011010001001011010001001011010001001011010001</textPath>
+            </text>
+          </g>
+                    <g class="neuro-brain">
+            <path class="neuro-brain__shape" d="M118,72 C104,64 88,68 84,82 C70,88 66,104 76,112 C68,124 76,138 90,138 C94,150 108,154 116,146 C118,140 118,132 117,124 C116,108 117,88 118,72 Z" />
+            <path class="neuro-brain__shape" d="M122,72 C136,64 152,68 156,82 C170,88 174,104 164,112 C172,124 164,138 150,138 C146,150 132,154 124,146 C122,140 122,132 123,124 C124,108 123,88 122,72 Z" />
+            <path class="neuro-brain__stem" d="M120,140 C120,152 124,164 132,172" />
+            <g class="neuro-brain__folds">
+              <path d="M100,86 C94,98 96,110 104,118" />
+              <path d="M90,104 C88,114 92,124 100,128" />
+              <path d="M140,86 C146,98 144,110 136,118" />
+              <path d="M150,104 C152,114 148,124 140,128" />
+              <path d="M106,136 C112,142 128,142 134,136" />
+            </g>
+            <g class="neuro-brain__links">
+              <line x1="102" y1="98" x2="118" y2="110" />
+              <line x1="138" y1="98" x2="122" y2="110" />
+              <line x1="110" y1="126" x2="118" y2="110" />
+              <line x1="130" y1="126" x2="122" y2="110" />
+            </g>
+            <g class="neuro-brain__nodes">
+              <circle cx="102" cy="98" r="3.2" />
+              <circle cx="138" cy="98" r="3.2" />
+              <circle cx="118" cy="110" r="3.2" />
+              <circle cx="110" cy="126" r="3.2" />
+              <circle cx="130" cy="126" r="3.2" />
+            </g>
+          </g>
     </svg>
 
     <p class="neuro-loader__label">
@@ -92,72 +66,62 @@ defineProps({
   overflow: visible;
 }
 
+/* ---- 外圈细圆环 ---- */
+.neuro-outline {
+  fill: none;
+  stroke: #e1f0ed;
+  stroke-width: 1.6;
+}
+
 /* ---- 二进制数字环 ---- */
-.neuro-ring--digits {
+.neuro-ring {
   transform-origin: 120px 120px;
-  animation: neuro-ring-spin 28s linear infinite;
+  animation: neuro-ring-spin 40s linear infinite;
 }
 
 .neuro-ring__text {
   font-family: var(--font-display, 'Segoe UI', sans-serif);
-  font-size: 7.5px;
-  letter-spacing: 1.6px;
-  fill: #a9c9c6;
-  opacity: 0.95;
+  font-size: 9.5px;
+  letter-spacing: 3.2px;
+  fill: #bccdc8;
 }
 
-/* ---- 旋转弧线 ---- */
-.neuro-arc {
-  fill: none;
-  stroke-linecap: round;
-  stroke-width: 2;
+/* ---- 手绘大脑 ---- */
+.neuro-brain {
+  transform: scale(1.1);
   transform-origin: 120px 120px;
 }
 
-.neuro-arc--a {
-  stroke: #7cc8c5;
-  stroke-dasharray: 70 560;
-  animation: neuro-arc-spin 7.5s linear infinite;
-}
-
-.neuro-arc--b {
-  stroke: #a7dbd7;
-  stroke-dasharray: 34 560;
-  animation: neuro-arc-spin 11s linear infinite reverse;
-}
-
-/* ---- 徽标与大脑 ---- */
-.neuro-disc {
-  fill: #eff9f8;
-  stroke: #d8eeeb;
-  stroke-width: 1;
-}
-
 .neuro-brain__shape {
-  fill: #d9f0ed;
-  stroke: #2f8f8d;
-  stroke-width: 2.6;
+  fill: #eef8f5;
+  stroke: #3f7a76;
+  stroke-width: 2.4;
   stroke-linejoin: round;
+}
+
+.neuro-brain__stem {
+  fill: none;
+  stroke: #3f7a76;
+  stroke-width: 2.4;
+  stroke-linecap: round;
 }
 
 .neuro-brain__folds {
   fill: none;
-  stroke: #67b8b4;
-  stroke-width: 1.7;
+  stroke: #6fa39e;
+  stroke-width: 1.6;
   stroke-linecap: round;
-  opacity: 0.9;
 }
 
 .neuro-brain__links {
-  stroke: #67b8b4;
-  stroke-width: 1.2;
-  opacity: 0.75;
+  stroke: #9db8b3;
+  stroke-width: 1;
 }
 
 .neuro-brain__nodes circle {
-  fill: #3a9b98;
-  stroke: #e8f7f5;
-  stroke-width: 1.2;
+  fill: #7f9c98;
+  stroke: #f4fbf9;
+  stroke-width: 1;
 }
 
 /* ---- 省略号 ---- */
@@ -167,7 +131,7 @@ defineProps({
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.3px;
-  color: #3f6f6c;
+  color: #4a746f;
   text-align: center;
 }
 
@@ -190,12 +154,6 @@ defineProps({
   }
 }
 
-@keyframes neuro-arc-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes neuro-dot {
   0%,
   100% {
@@ -207,10 +165,9 @@ defineProps({
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .neuro-ring--digits,
-  .neuro-arc,
+  .neuro-ring,
   .neuro-loader__dots i {
-    animation-duration: 60s;
+    animation-duration: 80s;
   }
 }
 </style>
