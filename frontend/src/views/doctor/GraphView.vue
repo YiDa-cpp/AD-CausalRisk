@@ -102,12 +102,23 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import CausalGraph from '@/components/charts/CausalGraph.vue'
 import GraphHistoryWall from '@/components/charts/GraphHistoryWall.vue'
 import { getAssessment } from '@/api/assessments.js'
+import { useUserStore } from '@/stores/user.js'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
-const HISTORY_KEY = 'adc-causalrisk:graph-history'
+const HISTORY_PREFIX = 'adc-causalrisk:graph-history'
 const HISTORY_LIMIT = 12
+
+/**
+ * 历史图谱按当前账号隔离：同一浏览器切换账号/角色后，
+ * 只能看到自己打开过的图谱，不会串到别人的数据。
+ */
+const historyKey = computed(() => {
+  const identity = userStore.id ?? userStore.username ?? 'anonymous'
+  return `${HISTORY_PREFIX}:${identity}`
+})
 
 const inputId = ref('')
 const loading = ref(false)
@@ -189,10 +200,10 @@ async function loadAssessment(id) {
   }
 }
 
-/** 读取本机历史图谱。 */
+/** 读取本机历史图谱（仅当前账号）。 */
 function readHistory() {
   try {
-    const raw = window.localStorage.getItem(HISTORY_KEY)
+    const raw = window.localStorage.getItem(historyKey.value)
     const list = raw ? JSON.parse(raw) : []
     return Array.isArray(list) ? list.filter((item) => item?.graph?.nodes?.length) : []
   } catch {
@@ -220,11 +231,11 @@ function rememberHistory(data) {
   ].slice(0, HISTORY_LIMIT)
   history.value = next
   try {
-    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
+    window.localStorage.setItem(historyKey.value, JSON.stringify(next))
   } catch {
     // 配额不足：只保留最近几张，避免整页不可用
     try {
-      window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next.slice(0, 6)))
+      window.localStorage.setItem(historyKey.value, JSON.stringify(next.slice(0, 6)))
     } catch {
       // 忽略
     }
@@ -253,7 +264,7 @@ async function clearHistory() {
   }
   history.value = []
   try {
-    window.localStorage.removeItem(HISTORY_KEY)
+    window.localStorage.removeItem(historyKey.value)
   } catch {
     // 忽略
   }
@@ -272,6 +283,12 @@ function describeLoadError(problem, id) {
 onMounted(() => {
   isNarrow.value = window.innerWidth < 1200
   window.addEventListener('resize', onResize)
+  // 清理旧版本的共享 key：它没有账号隔离，不能再读取/保留
+  try {
+    window.localStorage.removeItem(HISTORY_PREFIX)
+  } catch {
+    // 忽略
+  }
   history.value = readHistory()
   const fromQuery = route.query.assessmentId
   if (fromQuery) {

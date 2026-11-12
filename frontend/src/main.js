@@ -18,9 +18,11 @@ app.use(router)
 
 app.mount('#app')
 
-// 首屏加载动画：Vue 挂载完成后淡出并移除
+// 首屏加载动画：Vue 挂载完成后至少保留 900ms，避免本地秒开时"一闪而过"
 const boot = document.getElementById('boot')
 if (boot) {
-  boot.classList.add('app-boot--done')
-  window.setTimeout(() => boot.remove(), 420)
+  window.setTimeout(() => {
+    boot.classList.add('app-boot--done')
+    window.setTimeout(() => boot.remove(), 420)
+  }, 900)
 }

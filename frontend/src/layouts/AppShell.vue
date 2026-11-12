@@ -10,6 +10,9 @@
   <!-- 路由切换的顶部进度条 -->
   <RouteProgress />
 
+  <!-- 全局加载动画：切页 / 跳转时覆盖整页 -->
+  <GlobalLoading />
+
   <!-- 批量评估进度面板：挂在 Shell 上，切页面也不丢 -->
   <BatchProgressPanel />
 </template>
@@ -23,6 +26,7 @@ import PatientLayout from './PatientLayout.vue'
 import SidebarLayout from './SidebarLayout.vue'
 import BatchProgressPanel from '@/components/assessment/BatchProgressPanel.vue'
 import RouteProgress from '@/components/common/RouteProgress.vue'
+import GlobalLoading from '@/components/common/GlobalLoading.vue'
 
 /**
  * 三种外壳：空白（登录/异常页）、侧边栏（医生/研究员/管理员共用）、适老（患者）。
