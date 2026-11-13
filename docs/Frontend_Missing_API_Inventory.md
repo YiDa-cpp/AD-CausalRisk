@@ -47,30 +47,32 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 
 > 判定标准：**后端接口已就绪并已确认路径/结构**，只差前端交互入口。全部为纯前端改动。
 
-### 未接入端点总清单（2026-11-12 清点，16 项待办）
+### 未接入端点总清单（2026-11-13 更新：13 项已接入，3 项待办）
 
 > 口径：接口矩阵对照 `contracts/java-business.target.openapi.json` 与后端 Controller，筛出「后端已存在、前端尚未封装或未接入 UI」的端点；`GET /api`（根转发）、`/reports/{id}/download`（已用 fetch 接入 PDF）、`/assessment-tasks/{id}/cancel`、`/assessment-tasks/{id}/input` 不计入。导入历史列表与详情合并为 1 项，合计 **16 项**。
+>
+> 2026-11-13：按管理员要求「后端已存在但前端未实现的接口全部接入 UI」，下列 1–6、8–12、14、16 已实现并验证；仍未接入的只剩 7（质控新分页）、13（发起质控）、15（大屏 summary），需要后端/产品先定语义。
 
-| # | 优先级 | 端点 | 现状 | 缺失原因 / 阻塞点 | 对应条目 |
+| # | 优先级 | 端点 | 现状（2026-11-13） | 缺失原因 / 阻塞点 | 对应条目 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | P1 | `POST /api/assessment-tasks/submit` | 未封装，批量评估仍走同步 create | 需产品确认异步提交交互（进度轮询、失败重试、取消时序），否则只是换个入口重复同步阻塞 | P1-1 |
-| 2 | P1 | `GET /api/subjects/{id}/feature-sources` | 未封装，档案抽屉无「数据来源」页 | 需产品确认逐行展示字段（`source/missingReason/dataVersion/importJobId`）与缺失值的展示措辞 | P1-2 |
-| 3 | P1 | `GET /api/subjects/{id}/visit-sources` | 未封装 | 同上；访视来源需与 visit 历史合并展示，避免两处口径不一致 | P1-2 |
-| 4 | P1 | `GET /api/subjects/{id}/capabilities` | 未封装 | 同上；能力（补录/评估/随访）与后端权限判定要一致，需确认无权限时的降级展示 | P1-2 |
-| 5 | P1 | `GET /api/import-jobs` + `GET /api/import-jobs/{jobId}` | 未封装，导入中心无历史表 | 需补导入历史 UI（列表/详情/失败重试入口）；详情字段（`errorSummary`）展示方式未定 | P1-3 |
-| 6 | P1 | `GET /api/import-jobs/{id}/errors.csv` | 未封装，无「下载错误明细」 | 需 CSV 下载按钮 + 鉴权 fetch（axios blob 与现有 `downloadCsv` 不同），需确认大文件失败提示 | P1-3 |
-| 7 | P1 | `GET /api/quality-checks` | 未封装，质控页仍用旧 `/api/qc/list` | 新分页接口的参数语义（`keyword/from/to`）与旧接口分页行为需后端确认后再切换，避免筛选结果不一致 | P1-6 |
-| 8 | P1 | `PATCH /api/subjects/{subjectId}` | 未封装，档案无编辑入口 | 需补编辑表单（别名/状态）与非法值提示；后端已写审计，前端需展示"已记录审计" | P1-7 |
-| 9 | P1 | `POST /api/subjects` | 未封装，无建档入口 | 需补建档表单；档案编号生成规则（`DEMO-*` 保留）与必填字段需产品确认 | P1-7 |
-| 10 | P1 | `POST /api/subjects/{subjectId}/features` | 未封装，无特征补录 | 需动态字段表单（随 `dataVersion` 变化），需确认缺失值/单位的录入约束 | P1-8 |
-| 11 | P1 | `POST /api/subjects/{id}/observations` | 未封装，无观测补录 | 需补录表单；观测类型、单位、缺失原因字典需产品给出 | P1-8 |
-| 12 | P1 | `POST /api/subjects/{subjectId}/visits` | 未封装，无访视补录 | 需补录表单；访视窗口与量表字段（MMSE/MoCA/CDR-SB）需与后端 `VisitInput` 对齐 | P1-8 |
-| 13 | P1 | `POST /api/subjects/{subjectId}/quality-checks` | 未封装，无「发起质控」 | 需产品确认质控规则触发方式与状态机（PENDING/PASSED/BLOCKED）交互 | P1-8 |
-| 14 | P1 | `GET /api/subjects/{id}/graph-diff?from&to` | 未封装，图谱页无对比入口 | 需设计节点/边 diff 视图与免责声明（"仅比较结构，不证明个体因果变化"），措辞待研究/临床确认 | P1-11 |
-| 15 | P2 | `GET /api/dashboard/summary` | 未封装，大屏仍用三请求聚合 | 指标口径未定：summary 字段（评估复核/高风险/今日随访）与现有大屏四指标语义不同 | P2-2 |
-| 16 | P2 | `PATCH /api/system/models/{version}` | 未封装，系统设置页只读 | 需产品定义模型启用/停用的业务语义与审批流程；当前无权限模型 | P2-6 |
+| 1 | P1 | `POST /api/assessment-tasks/submit` | ✅ 已接入：任务页「异步提交」弹窗（受试者 ID + 预测窗口，自动 `modelVersion`） | 需产品确认失败重试/取消时序 | P1-1 |
+| 2 | P1 | `GET /api/subjects/{id}/feature-sources` | ✅ 已接入：360 抽屉「数据溯源」卡片 | 字段按接口原样展示（下划线键） | P1-2 |
+| 3 | P1 | `GET /api/subjects/{id}/visit-sources` | ✅ 已接入：同上 | 与访视历史同屏展示 | P1-2 |
+| 4 | P1 | `GET /api/subjects/{id}/capabilities` | ✅ 已接入：抽屉打开时读取，决定「编辑档案」按钮与补录入口 | 无权限时降级为只读 | P1-2 |
+| 5 | P1 | `GET /api/import-jobs` + `GET /api/import-jobs/{jobId}` | ✅ 已接入：导入页「历史导入记录」表格 + 详情弹窗 | — | P1-3 |
+| 6 | P1 | `GET /api/import-jobs/{id}/errors.csv` | ✅ 已接入：历史表格「导出错误 CSV」（鉴权 fetch + blob） | — | P1-3 |
+| 7 | P1 | `GET /api/quality-checks` | ⏳ 未接入，质控页仍用旧 `/api/qc/list` | 新分页接口参数语义（`keyword/from/to`）与旧接口分页行为需后端确认后再切换 | P1-6 |
+| 8 | P1 | `PATCH /api/subjects/{subjectId}` | ✅ 已接入：360 概览「编辑档案」弹窗（别名/状态，编号只读） | — | P1-7 |
+| 9 | P1 | `POST /api/subjects` | ✅ 已接入：档案列表「新建档案」弹窗（`DEMO-*` 校验） | — | P1-7 |
+| 10 | P1 | `POST /api/subjects/{subjectId}/features` | ✅ 已接入：「补录特征」弹窗（基础必填项） | 动态字段字典待产品补充 | P1-8 |
+| 11 | P1 | `POST /api/subjects/{id}/observations` | ✅ 已接入：「补录观测」弹窗（visit/feature 两类） | 单位/缺失原因字典待产品给出 | P1-8 |
+| 12 | P1 | `POST /api/subjects/{subjectId}/visits` | ✅ 已接入：「补录访视」弹窗（编号/日期/MMSE/MoCA/CDR-SB） | — | P1-8 |
+| 13 | P1 | `POST /api/subjects/{subjectId}/quality-checks` | ⏳ 未接入，无「发起质控」 | 需产品确认质控规则触发方式与状态机 | P1-8 |
+| 14 | P1 | `GET /api/subjects/{id}/graph-diff?from&to` | ✅ 已接入：360 概览「图谱对比」弹窗（两个评估 + 六项统计 + 免责声明） | — | P1-11 |
+| 15 | P2 | `GET /api/dashboard/summary` | ⏳ 未接入，大屏仍用三请求聚合 | 指标口径未定 | P2-2 |
+| 16 | P2 | `PATCH /api/system/models/{version}` | ✅ 已接入：系统设置「模型配置」卡片（开关 + 刷新） | 仅 ADMIN、仅已安装模型 | P2-6 |
 
-> 已完成/部分完成的 P1 项（不计入上表）：P1-1 取消（`POST /cancel` 已接入任务抽屉）、P1-4 PDF（`/download?format=pdf` 已接入，HTML/JSON 未做）、P1-5 复核历史（`/assessments/{id}/reviews` 已用于患者 360 抽屉，独立时间线页未做）、P1-9（`api/system.js` 已封装 `GET /system/info`，页面仍用构建常量）、P1-10（偏好已完成）、P1-12（`/assessment-tasks/{id}/input` 已用于预测窗口，完整快照视图未做）。
+> 已完成/部分完成的 P1 项（不计入上表）：P1-1 取消（`POST /cancel` 已接入任务抽屉）、P1-4 PDF（`/download?format=pdf` 已接入，HTML/JSON 未做）、P1-5 复核历史（`/assessments/{id}/reviews` 已用于患者 360 抽屉，独立时间线页未做）、P1-9（`GET /system/info` 已接入系统设置）、P1-10（偏好已完成）、P1-12（`/assessment-tasks/{id}/input` 已用于预测窗口，完整快照视图未做）。研究表格评估接口（`POST/GET /api/research/table-assessment-tasks`）已按 P2-8 接入 /research 页内 Tab。
 
 ### P1-1 评估任务的「取消 / 提交」（取消已完成，提交待办）
 
@@ -245,6 +247,14 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 | 现状 | `GET /api/assessment-tasks/{id}/input` 与 `/graph-diff` 已就绪（P1-11/P1-12 是入口层） |
 | 待定 | 快照与 diff 的展示字段、免责声明措辞、是否允许导出，需要研究/临床双方确认 |
 
+### P2-8 研究表格评估入口（无快照查询接口，暂不加入口）
+
+| 项 | 内容 |
+| --- | --- |
+| 现状 | `frontend/src/api/research.js` 已封装 `POST /api/research/table-assessment-tasks`（body `{ snapshotId }` + `Idempotency-Key`）与 `GET /api/research/table-assessment-tasks/{id}`。参数与 `contracts/java-business.target.openapi.json`、`ResearchTableProtocol`/`ResearchTableAssessmentService` 完全一致（`snapshotId` 为正整数 int64，body 仅此一个字段）。 |
+| 阻塞点 | 后端只有"按已登记的冻结快照提交"，没有快照列表或快照登记接口。`backend/src/test/java/com/adcausalrisk/backend/research/ResearchTableDemo.java` 是**测试侧本地启动器**：需要 manifest.json、handoff.json 两个参数与 `RESEARCH_TABLE_TEST_TOKEN`，启动 `test` profile + H2 内存库 + 随机端口的应用，进程内插入 `seven/ten/blocked` 三个快照后写 handoff JSON 即退出；类注释明确 `There is no writable registration endpoint`。因此产品运行环境拿不到可用的 `snapshotId`。 |
+| 结论 | 保持现状：API 已就绪但**不新增 UI 入口**；需等待后端提供可查询（或可创建）的快照列表接口。接口就绪后在图谱大屏 / 研究证据页加入口：选择或输入快照 → 提交任务 → 轮询 `GET /{id}` 展示 `status` 与 `result`。 |
+
 ---
 
 ## 四、P3 级：当前受限于接口上限（已知限制）
@@ -364,14 +374,14 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 2. P1-3 导入历史 + 错误 CSV
 3. P1-5 复核历史时间线（360 抽屉已有，独立页待做）
 
-### 第二批（数据可信度）
-4. P1-6 质控搜索与分页迁移
-5. P1-2 档案来源与能力
-6. P1-7 档案编辑 + P1-8 数据补录
+### 第二批（数据可信度）——2026-11-13 已完成
+4. P1-6 质控搜索与分页迁移（未做，仍用 `/api/qc/list`）
+5. P1-2 档案来源与能力（✅ 360 抽屉「数据溯源」）
+6. P1-7 档案编辑 + P1-8 数据补录（✅ 新建/编辑档案、补录访视/特征/观测）
 
-### 第三批（管理与研究）
-7. P1-9 系统信息（API 已封装，页面待接）、P1-10 用户偏好（已完成，2026-11-12）
-8. P1-11 图谱对比、P1-12 输入快照（预测窗口已接，完整视图待做）
+### 第三批（管理与研究）——2026-11-13 已完成
+7. P1-9 系统信息（✅ 系统设置接 `/system/info` + 模型开关）、P1-10 用户偏好（已完成，2026-11-12）
+8. P1-11 图谱对比（✅ 360 抽屉弹窗）、P1-12 输入快照（预测窗口已接，完整视图待做）
 9. P1-4 报告多格式导出（PDF 已接，HTML/JSON 待做）
 
 ### 待后端/产品解锁
@@ -379,7 +389,7 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 - P2-2 大屏 summary 口径
 - P2-3 审计 diff
 - P2-5 患者版 PDF
-- P2-6 模型配置
+- P2-6 模型配置（✅ 已接入系统设置「模型配置」）
 
 ---
 
@@ -388,16 +398,16 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 | 项 | 受影响页面 | 不做的后果 |
 | --- | --- | --- |
 | P1-1 任务取消/提交 | `TaskList`、`AssessmentPanel` | 取消已接入；提交未做时任务只能等超时 |
-| P1-2 来源/能力 | `PatientList` 抽屉 | 无法回答"这条数据从哪来、为什么缺失" |
-| P1-3 导入历史/错误 CSV | `ImportCenter` | 刷新即丢，错误只能逐行看页面 |
+| P1-2 来源/能力 | `PatientList` 抽屉 | ✅ 已接入「数据溯源」：能力/特征来源/访视来源 |
+| P1-3 导入历史/错误 CSV | `ImportCenter` | ✅ 已接入「历史导入记录」+ 详情 + 错误 CSV |
 | P1-4 多格式导出 | `ReportList` | 研究归档缺 HTML/JSON（PDF 已接） |
 | P1-5 复核时间线 | `ReviewBoard` | 改判历史不可追溯（360 抽屉已展示） |
 | P1-6 质控搜索 | `QcList` | 只能按状态翻页找记录 |
-| P1-7 档案编辑 | `PatientList` | 别名/状态只能改数据库 |
-| P1-8 数据补录 | `PatientList` | 缺数据只能重新导入整批 |
-| P1-9 系统信息 | `SystemSettings` | 版本信息是构建期常量（`api/system.js` 已封装） |
+| P1-7 档案编辑 | `PatientList` | ✅ 已接入「新建档案」「编辑档案」 |
+| P1-8 数据补录 | `PatientList` | ✅ 已接入访视/特征/观测补录 |
+| P1-9 系统信息 | `SystemSettings` | ✅ 已接入真实 `/system/info` + 模型配置 |
 | P1-10 用户偏好 | 全局 | 已完成：字号/密度/通知可调 |
-| P1-11 图谱对比 | `GraphView` | 研究场景缺前后对比 |
+| P1-11 图谱对比 | `GraphView` | ✅ 已接入 360 抽屉「图谱对比」弹窗 |
 | P1-12 输入快照 | `TaskList` | 无法解释历史任务用了什么输入 |
 | P2-1 最近登录 | `UserAdmin` | 无法判断账号是否在用 |
 | P2-2 大屏口径 | `AdminHome` | 指标口径需产品确认 |
