@@ -171,6 +171,14 @@
               >
                 图谱对比
               </el-button>
+              <el-button
+                v-if="canQualityCheck"
+                size="small"
+                :icon="FirstAidKit"
+                @click="qualityCheckOpen = true"
+              >
+                发起质控检查
+              </el-button>
               <span v-if="reportLibrary.length < 2" class="drawer__actions-hint">
                 至少两次评估才能对比图谱
               </span>
@@ -596,6 +604,14 @@
       :subject-id="selected.id"
       :assessments="reportLibrary"
     />
+
+    <!-- 发起质控检查（自动输入质量检查，与人工复核单是两套记录） -->
+    <QualityCheckDialog
+      v-if="selected"
+      v-model="qualityCheckOpen"
+      :subject-id="selected.id"
+      :subject-label="selected.alias || selected.subjectCode || ''"
+    />
   </div>
 </template>
 
@@ -632,6 +648,7 @@ import FeatureRecordDialog from '@/components/subject/FeatureRecordDialog.vue'
 import ObservationRecordDialog from '@/components/subject/ObservationRecordDialog.vue'
 import DataProvenancePanel from '@/components/subject/DataProvenancePanel.vue'
 import GraphDiffDialog from '@/components/subject/GraphDiffDialog.vue'
+import QualityCheckDialog from '@/components/subject/QualityCheckDialog.vue'
 import { getSubjectCapabilities, getSubjectDetail, listSubjects } from '@/api/subjects.js'
 import { listFollowUps } from '@/api/followups.js'
 import {
@@ -674,6 +691,7 @@ const visitDialogOpen = ref(false)
 const featureDialogOpen = ref(false)
 const observationDialogOpen = ref(false)
 const graphDiffOpen = ref(false)
+const qualityCheckOpen = ref(false)
 const subjectCapabilities = ref(null)
 
 /**
@@ -683,6 +701,13 @@ const subjectCapabilities = ref(null)
 const canManageSubject = computed(() => userStore.hasRole(['ADMIN', 'RESEARCHER']))
 const canEditSubject = computed(
   () => canManageSubject.value || subjectCapabilities.value?.manage === true
+)
+/**
+ * 发起质控检查要求 canReadRawScores（ADMIN / RESEARCHER，或医生持有 READ_RAW 授权）。
+ * 能力接口失败时不显示按钮，避免点了才 403。
+ */
+const canQualityCheck = computed(
+  () => canManageSubject.value || subjectCapabilities.value?.readRaw === true
 )
 
 async function loadSubjectCapabilities(subjectId) {
@@ -887,7 +912,8 @@ useEscapeToClose(
     visitDialogOpen.value ||
     featureDialogOpen.value ||
     observationDialogOpen.value ||
-    graphDiffOpen.value
+    graphDiffOpen.value ||
+    qualityCheckOpen.value
 )
 
 /** 抽屉里的随访：GET /api/subjects/{subjectId}/follow-ups */

@@ -90,3 +90,12 @@ export function getSubjectCapabilities(subjectId) {
 export function getGraphDiff(subjectId, from, to) {
   return request.get(`/subjects/${subjectId}/graph-diff`, { params: { from, to } })
 }
+
+/**
+ * POST /api/subjects/{subjectId}/quality-checks —— 发起一次输入质量检查。
+ * 返回已落库的结果：{ id, subjectId, qualityStatus(PASS|WARN|BLOCKED), issues[],
+ * checkedAt, ruleVersion }。人工审核走 /api/qc/*，与本接口是两套记录。
+ */
+export function runQualityCheck(subjectId) {
+  return request.post(`/subjects/${subjectId}/quality-checks`)
+}

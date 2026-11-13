@@ -270,24 +270,18 @@ try {
         document.querySelector('.qc-page')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 160) ||
         ''
     }))
-    // 待审池为空是正常状态（默认筛选 PENDING）：空态提示出现即说明接口与页面都正常。
-    const qcEmpty = /没有待审|没有符合条件/.test(qc.text)
+    // 空池是正常状态：空态提示出现即说明接口与页面都正常。
+    const qcEmpty = /没有符合条件/.test(qc.text)
     record('研究员-质控列表', qc.rows >= 1 || qcEmpty, `rows=${qc.rows} :: ${qc.text.slice(0, 70)}`)
     await page.screenshot({ path: join(shotDir, 'live2-qc.png') })
 
     if (qc.rows > 0) {
-      await clickByText(page, '.qc-page .el-table__body button', '通过')
-      await page.waitForSelector('.el-message-box__input textarea', { timeout: 10000 })
-      await page.type('.el-message-box__input textarea', '真实联调：已核对源数据，异常项确认无误。')
-      await sleep(900)
-      await clickByText(page, '.el-message-box__btns button', '确定')
-      await sleep(2500)
-      const after = await page.evaluate(() => ({
-        rows: document.querySelectorAll('.qc-page .el-table__body .el-table__row').length,
-        body: document.body.textContent
-      }))
-      record('研究员-质控通过', after.rows === qc.rows - 1, `剩余=${after.rows}（原 ${qc.rows}）`)
-      await page.screenshot({ path: join(shotDir, 'live2-qc-after.png') })
+      // 新版列表展示自动质控结果（PASS/WARN/BLOCKED + 问题明细），不再有人工「通过」按钮
+      const qcStatus = await page.evaluate(() => {
+        const first = document.querySelector('.qc-page .el-table__body .el-table__row')
+        return first ? first.textContent.replace(/\s+/g, ' ').trim().slice(0, 120) : ''
+      })
+      record('研究员-质控状态可见', /通过|需关注|被阻断/.test(qcStatus), qcStatus || '(empty)')
     }
     await page.close()
   })

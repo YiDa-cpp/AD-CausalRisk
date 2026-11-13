@@ -1,11 +1,15 @@
 <template>
   <div class="qc-page">
-    <PageHeader back title="数据质控" subtitle="导入后的异常项由系统列出，研究员或管理员逐条通过/驳回。">
+    <PageHeader
+      back
+      title="数据质控"
+      subtitle="系统对导入数据的自动质量检查：PASS 通过、WARN 需关注、BLOCKED 阻断评估。人工复核单在「评估复核」中处理。"
+    >
       <template #extra>
         <el-radio-group v-model="status" size="small" @change="reload">
-          <el-radio-button value="PENDING">待审</el-radio-button>
-          <el-radio-button value="APPROVED">已通过</el-radio-button>
-          <el-radio-button value="REJECTED">已驳回</el-radio-button>
+          <el-radio-button value="BLOCKED">被阻断</el-radio-button>
+          <el-radio-button value="WARN">需关注</el-radio-button>
+          <el-radio-button value="PASS">通过</el-radio-button>
           <el-radio-button value="">全部</el-radio-button>
         </el-radio-group>
         <el-button :icon="Refresh" @click="reload">刷新</el-button>
@@ -27,8 +31,8 @@
       <EmptyState
         v-else-if="items.length === 0"
         :icon="Checked"
-        :title="status === 'PENDING' ? '没有待审的质控记录' : '没有符合条件的质控记录'"
-        description="导入 CSV 后，发现异常的行会进入这里等待人工处理。"
+        title="没有符合条件的质控记录"
+        description="导入或补录数据后，系统会按规则自动生成检查结果；被阻断的记录会阻止发起评估。"
       />
 
       <template v-else>
@@ -39,37 +43,30 @@
               <span class="subject__code">{{ row.subjectCode || `#${row.subjectId}` }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="visitCode" label="访视" width="120" />
-          <el-table-column prop="abnormalItems" label="异常项" min-width="220" show-overflow-tooltip />
-          <el-table-column label="状态" width="110">
+          <el-table-column label="质控状态" width="120">
             <template #default="{ row }">
-              <StatusTag :type="row.status" />
+              <StatusTag :type="row.qualityStatus" />
             </template>
           </el-table-column>
-          <el-table-column label="提交时间" width="170">
-            <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="170" fixed="right">
+          <el-table-column label="问题明细" min-width="320">
             <template #default="{ row }">
-              <template v-if="row.status === 'PENDING'">
-                <el-button
-                  text
-                  type="primary"
-                  :loading="auditing === row.id"
-                  @click="audit(row, 'APPROVED')"
-                >
-                  通过
-                </el-button>
-                <el-button
-                  text
-                  type="danger"
-                  :loading="auditing === row.id"
-                  @click="audit(row, 'REJECTED')"
-                >
-                  驳回
-                </el-button>
-              </template>
-              <span v-else class="done">{{ row.auditorName || '已处理' }}</span>
+              <span v-if="issuesOf(row).length === 0" class="empty-cell">无异常</span>
+              <ul v-else class="issues">
+                <li v-for="(issue, index) in issuesOf(row)" :key="index">{{ issue }}</li>
+              </ul>
+            </template>
+          </el-table-column>
+          <el-table-column label="规则版本" width="140">
+            <template #default="{ row }">
+              <span class="mono">{{ row.ruleVersion || '—' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="检查时间" width="170">
+            <template #default="{ row }">{{ formatTime(row.checkedAt) }}</template>
+          </el-table-column>
+          <el-table-column label="数据版本" width="140">
+            <template #default="{ row }">
+              <span class="mono">{{ row.dataVersion || '—' }}</span>
             </template>
           </el-table-column>
         </el-table>
@@ -91,22 +88,20 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { Checked, Refresh, WarningFilled } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DataCard from '@/components/common/DataCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import { listQcRecords, submitQcAudit } from '@/api/qc.js'
+import { listQualityChecks } from '@/api/qc.js'
 
 const items = ref([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
-const status = ref('PENDING')
+const status = ref('')
 const loading = ref(true)
 const error = ref('')
-const auditing = ref(null)
 
 /** 请求序号守卫：翻页/切筛选时只认最后一次查询 */
 let requestSeq = 0
@@ -124,13 +119,30 @@ function formatTime(value) {
   return Number.isNaN(date.getTime()) ? '—' : timeFormatter.format(date)
 }
 
+/** issues 在库里是 JSON 字符串（如 ["缺失 MMSE"]），兼容已是数组的情况。 */
+function issuesOf(row) {
+  const raw = row?.issues
+  if (Array.isArray(raw)) return raw.filter(Boolean)
+  if (typeof raw !== 'string' || !raw.trim()) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [raw]
+  } catch {
+    return [raw]
+  }
+}
+
 async function load() {
   // 请求序号：翻页/切筛选很快时，旧页面的响应不能覆盖当前页
   const seq = ++requestSeq
   loading.value = true
   error.value = ''
   try {
-    const data = await listQcRecords({ status: status.value || undefined, page: page.value, pageSize: pageSize.value })
+    const data = await listQualityChecks({
+      status: status.value || undefined,
+      page: page.value,
+      pageSize: pageSize.value
+    })
     if (seq !== requestSeq) return
     items.value = Array.isArray(data?.items) ? data.items : []
     total.value = Number(data?.total ?? items.value.length)
@@ -147,53 +159,6 @@ async function load() {
 function reload() {
   page.value = 1
   load()
-}
-
-async function audit(row, decision) {
-  const label = decision === 'APPROVED' ? '通过' : '驳回'
-  let comment = ''
-  try {
-    const result = await ElMessageBox.prompt(
-      `确定${label}这条质控记录吗？可填写说明（可留空）。`,
-      `${label}质控`,
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        inputType: 'textarea',
-        inputPlaceholder: decision === 'REJECTED' ? '请写明驳回原因（必填）' : '请填写审核意见（必填）',
-        // 后端 QcSubmitRequest.auditComment 是 @NotBlank：空提交会 400，这里必须拦住
-        inputValidator: (value) => {
-          const text = (value || '').trim()
-          if (!text) return '复核意见不能为空（后端要求每次决定都有人类说明）'
-          if (text.length > 500) return '不能超过 500 字'
-          return true
-        }
-      }
-    )
-    comment = (result.value || '').trim()
-  } catch {
-    return
-  }
-
-  auditing.value = row.id
-  try {
-    const updated = await submitQcAudit(row.id, {
-      status: decision,
-      auditComment: comment,
-      abnormalItems: row.abnormalItems || undefined
-    })
-    const index = items.value.findIndex((item) => item.id === row.id)
-    if (index >= 0) {
-      // 当前筛选是"待审"时，处理完就从列表里移除
-      if (status.value === 'PENDING') items.value.splice(index, 1)
-      else items.value[index] = { ...items.value[index], ...updated }
-    }
-    ElMessage.success(`已${label}`)
-  } catch {
-    // request.js 已提示（例如记录不是 PENDING）
-  } finally {
-    auditing.value = null
-  }
 }
 
 onMounted(load)
@@ -222,9 +187,23 @@ onMounted(load)
   font-family: var(--font-display);
 }
 
-.done {
-  font-size: 12px;
+.issues {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.6;
+}
+
+.empty-cell {
+  font-size: 13px;
   color: var(--soft);
+}
+
+.mono {
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .pager {
