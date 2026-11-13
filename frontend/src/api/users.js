@@ -7,8 +7,22 @@ import request from './request.js'
  * { id, username, status, dataScope, createdAt, displayName, department, phone, officeHours, roles[] }
  * 注意：后端没有 last_login_at，页面上不能编造"最近登录"。
  */
-export function listUsers({ page = 1, pageSize = 20, status = '', keyword = '' } = {}) {
-  return request.get('/users', { params: { page, pageSize, status, keyword } })
+export function listUsers({
+  page = 1,
+  pageSize = 20,
+  status = '',
+  keyword = '',
+  from = '',
+  to = '',
+  sort = ''
+} = {}) {
+  const params = { page, pageSize }
+  if (status) params.status = status
+  if (keyword) params.keyword = keyword
+  if (from) params.from = from
+  if (to) params.to = to
+  if (sort) params.sort = sort
+  return request.get('/users', { params })
 }
 
 /** POST /api/users —— 必填 username / password / roles；其余为可选资料字段。 */

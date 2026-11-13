@@ -20,11 +20,22 @@ export function listFollowUpsPaged({
   pageSize = 20,
   due = '',
   status = '',
-  subjectId = ''
+  subjectId = '',
+  keyword = '',
+  from = '',
+  to = '',
+  sort = ''
 } = {}) {
-  return request.get('/follow-ups', {
-    params: { page, pageSize, due, status, subjectId }
-  })
+  const params = { page, pageSize }
+  if (due) params.due = due
+  if (status) params.status = status
+  const sid = Number(subjectId)
+  if (Number.isInteger(sid) && sid > 0) params.subjectId = sid
+  if (keyword) params.keyword = keyword
+  if (from) params.from = from
+  if (to) params.to = to
+  if (sort) params.sort = sort
+  return request.get('/follow-ups', { params })
 }
 
 /**

@@ -17,6 +17,28 @@
     </PageHeader>
 
     <DataCard padding="none">
+      <div class="filter">
+        <el-input
+          v-model="keyword"
+          class="filter__input"
+          size="small"
+          clearable
+          placeholder="档案编号 / 别名关键词"
+          @keyup.enter="reload"
+          @clear="reload"
+        />
+        <el-input
+          v-model="subjectFilter"
+          class="filter__input filter__input--narrow"
+          size="small"
+          clearable
+          placeholder="受试者 ID"
+          @keyup.enter="reload"
+          @clear="reload"
+        />
+        <el-button size="small" :icon="Search" @click="reload">查询</el-button>
+      </div>
+
       <el-skeleton v-if="loading" :rows="4" animated />
 
       <EmptyState
@@ -88,7 +110,7 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { Checked, Refresh, WarningFilled } from '@element-plus/icons-vue'
+import { Checked, Refresh, Search, WarningFilled } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DataCard from '@/components/common/DataCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
@@ -100,6 +122,8 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const status = ref('')
+const keyword = ref('')
+const subjectFilter = ref('')
 const loading = ref(true)
 const error = ref('')
 
@@ -140,6 +164,8 @@ async function load() {
   try {
     const data = await listQualityChecks({
       status: status.value || undefined,
+      keyword: keyword.value.trim() || undefined,
+      subjectId: subjectFilter.value.trim() || undefined,
       page: page.value,
       pageSize: pageSize.value
     })
@@ -169,6 +195,23 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.filter__input {
+  width: 220px;
+}
+
+.filter__input--narrow {
+  width: 130px;
 }
 
 .table {

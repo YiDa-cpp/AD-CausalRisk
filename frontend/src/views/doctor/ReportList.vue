@@ -16,6 +16,28 @@
           <el-radio-button value="PENDING">待复核</el-radio-button>
           <el-radio-button value="ACKNOWLEDGED">已确认</el-radio-button>
         </el-radio-group>
+        <el-select
+          v-model="riskFilter"
+          class="filter__select"
+          size="small"
+          clearable
+          placeholder="风险等级"
+          @change="loadPage(1)"
+        >
+          <el-option label="高风险" value="HIGH" />
+          <el-option label="中风险" value="MEDIUM" />
+          <el-option label="低风险" value="LOW" />
+          <el-option label="不可用" value="UNAVAILABLE" />
+        </el-select>
+        <el-input
+          v-model="subjectFilter"
+          class="filter__input"
+          size="small"
+          clearable
+          placeholder="受试者 ID"
+          @keyup.enter="loadPage(1)"
+          @clear="loadPage(1)"
+        />
         <span class="filter__count">共 {{ total }} 条 · 当前页 {{ items.length }} 条</span>
       </div>
 
@@ -108,6 +130,8 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const filter = ref('ALL')
+const riskFilter = ref('')
+const subjectFilter = ref('')
 const listLoading = ref(true)
 const listError = ref('')
 let listSeq = 0
@@ -149,7 +173,9 @@ async function loadPage(target = page.value) {
     const data = await listAssessments({
       page: target,
       pageSize: pageSize.value,
-      reviewStatus: filter.value === 'ALL' ? '' : filter.value
+      reviewStatus: filter.value === 'ALL' ? '' : filter.value,
+      riskLevel: riskFilter.value,
+      subjectId: subjectFilter.value.trim()
     })
     if (seq !== listSeq) return
     items.value = Array.isArray(data?.items) ? data.items : []
@@ -212,13 +238,22 @@ onMounted(async () => {
 .filter {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--line);
 }
 
+.filter__select {
+  width: 140px;
+}
+
+.filter__input {
+  width: 150px;
+}
+
 .filter__count {
+  margin-left: auto;
   font-size: 12px;
   color: var(--muted);
 }

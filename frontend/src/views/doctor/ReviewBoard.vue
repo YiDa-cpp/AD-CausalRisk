@@ -6,6 +6,28 @@
           <el-radio-button value="ALL">全部</el-radio-button>
           <el-radio-button value="PENDING">待复核</el-radio-button>
         </el-radio-group>
+        <el-select
+          v-model="riskFilter"
+          class="header-filter"
+          size="small"
+          clearable
+          placeholder="风险等级"
+          @change="loadPage(1)"
+        >
+          <el-option label="高风险" value="HIGH" />
+          <el-option label="中风险" value="MEDIUM" />
+          <el-option label="低风险" value="LOW" />
+          <el-option label="不可用" value="UNAVAILABLE" />
+        </el-select>
+        <el-input
+          v-model="subjectFilter"
+          class="header-filter"
+          size="small"
+          clearable
+          placeholder="受试者 ID"
+          @keyup.enter="loadPage(1)"
+          @clear="loadPage(1)"
+        />
         <el-button :icon="Refresh" :loading="loading" @click="loadPage(page)">刷新</el-button>
       </template>
     </PageHeader>
@@ -177,6 +199,8 @@ const pageSize = ref(20)
 const total = ref(0)
 const items = ref([])
 const filter = ref('ALL')
+const riskFilter = ref('')
+const subjectFilter = ref('')
 
 const loading = ref(false)
 const firstLoading = ref(true)
@@ -246,7 +270,9 @@ async function loadPage(target = page.value) {
       page: target,
       pageSize: pageSize.value,
       // 服务端筛选：后端 /api/assessments 支持 reviewStatus / riskLevel / keyword 等
-      reviewStatus: filter.value === 'ALL' ? '' : filter.value
+      reviewStatus: filter.value === 'ALL' ? '' : filter.value,
+      riskLevel: riskFilter.value,
+      subjectId: subjectFilter.value.trim()
     })
     if (seq !== requestSeq) return
     items.value = Array.isArray(data?.items) ? data.items : []
@@ -379,6 +405,10 @@ onMounted(async () => {
   justify-content: space-between;
   padding: 14px 18px;
   border-bottom: 1px solid var(--line);
+}
+
+.header-filter {
+  width: 140px;
 }
 
 .filter__count {

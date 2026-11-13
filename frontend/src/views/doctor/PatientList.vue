@@ -5,6 +5,17 @@
       subtitle="仅展示授权范围内的受试者；点击任意一行查看档案概览。"
     >
       <template #extra>
+        <el-select
+          v-model="statusFilter"
+          class="status-filter"
+          size="default"
+          clearable
+          placeholder="档案状态"
+          @change="search"
+        >
+          <el-option label="在册" value="ACTIVE" />
+          <el-option label="已归档" value="ARCHIVED" />
+        </el-select>
         <el-input
           v-model="keyword"
           class="search"
@@ -654,6 +665,7 @@ const pageSize = ref(20)
 const loading = ref(true)
 const error = ref(null)
 const keyword = ref('')
+const statusFilter = ref('')
 
 const drawerOpen = ref(false)
 const selected = ref(null)
@@ -826,7 +838,8 @@ async function load() {  const seq = (requestSeq += 1)
     const data = await listSubjects({
       page: page.value,
       pageSize: pageSize.value,
-      keyword: keyword.value.trim()
+      keyword: keyword.value.trim(),
+      status: statusFilter.value
     })
     if (seq !== requestSeq) return // 已有更新的请求，丢弃这次结果
     items.value = dedupe(Array.isArray(data?.items) ? data.items : [])
@@ -1265,6 +1278,10 @@ onBeforeUnmount(() => {
 
 .search {
   width: 260px;
+}
+
+.status-filter {
+  width: 130px;
 }
 
 .skeleton {

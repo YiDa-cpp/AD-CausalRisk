@@ -27,6 +27,25 @@
           <el-option label="排队中" value="PENDING" />
           <el-option label="进行中" value="RUNNING" />
         </el-select>
+        <el-input
+          v-model="keywordFilter"
+          class="filter__input"
+          size="small"
+          clearable
+          placeholder="任务 ID / 关键词"
+          @keyup.enter="applyFilters"
+          @clear="applyFilters"
+        />
+        <el-input
+          v-model="subjectFilter"
+          class="filter__input filter__input--narrow"
+          size="small"
+          clearable
+          placeholder="受试者 ID"
+          @keyup.enter="applyFilters"
+          @clear="applyFilters"
+        />
+        <el-button size="small" :icon="Search" @click="applyFilters">查询</el-button>
         <span class="filter__count">共 {{ total }} 条 · 当前页 {{ items.length }} 条</span>
       </div>
 
@@ -147,6 +166,57 @@
           description="任务仍在排队或运行时，stages 可能为空。"
         />
 
+        <section class="snapshot">
+          <div class="snapshot__head">
+            <h3 class="snapshot__title">输入快照</h3>
+            <el-button
+              v-if="inputSnapshot?.available"
+              text
+              size="small"
+              @click="showSnapshotJson = !showSnapshotJson"
+            >
+              {{ showSnapshotJson ? '收起完整 JSON' : '查看完整 JSON' }}
+            </el-button>
+          </div>
+          <el-skeleton v-if="inputLoading" :rows="3" animated />
+          <el-alert
+            v-else-if="inputError"
+            :title="inputError"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
+          <template v-else-if="inputSnapshot?.available">
+            <dl class="facts">
+              <div><dt>数据版本</dt><dd>{{ inputSnapshot.dataVersion || '—' }}</dd></div>
+              <div><dt>采集时间</dt><dd>{{ formatTime(inputSnapshot.capturedAt) }}</dd></div>
+              <div>
+                <dt>质控记录</dt>
+                <dd>{{ inputSnapshot.qualityCheckId ? `#${inputSnapshot.qualityCheckId}` : '—' }}</dd>
+              </div>
+              <div>
+                <dt>预测窗口</dt>
+                <dd>{{ inputSnapshot.request?.predictionWindowMonths ?? '—' }} 个月</dd>
+              </div>
+              <div>
+                <dt>访视 / 特征</dt>
+                <dd>
+                  {{ inputSnapshot.request?.visits?.length ?? 0 }} /
+                  {{ inputSnapshot.request?.features?.length ?? 0 }} 条
+                </dd>
+              </div>
+              <div class="facts__wide">
+                <dt>输入指纹</dt>
+                <dd class="mono">{{ inputSnapshot.inputDigest || '—' }}</dd>
+              </div>
+            </dl>
+            <pre v-if="showSnapshotJson" class="snapshot__json">{{ snapshotJson }}</pre>
+          </template>
+          <p v-else class="snapshot__empty">
+            {{ inputSnapshot?.message || '该任务没有保存可回看的输入快照（旧规则任务或任务尚未运行）。' }}
+          </p>
+        </section>
+
         <div class="actions">
           <el-button :disabled="!detail.assessmentId" @click="goReport">查看报告</el-button>
           <el-button type="primary" :disabled="!detail.assessmentId" @click="goReview">去复核</el-button>
@@ -200,13 +270,13 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Cpu, Download, Promotion, Refresh, WarningFilled } from '@element-plus/icons-vue'
+import { Cpu, Download, Promotion, Refresh, Search, WarningFilled } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DataCard from '@/components/common/DataCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ResearchAssessmentPanel from '@/components/assessment/ResearchAssessmentPanel.vue'
-import { cancelAssessmentTask, getAssessmentTask, listAssessmentTasks } from '@/api/assessments.js'
+import { cancelAssessmentTask, getAssessmentTask, getAssessmentTaskInput, listAssessmentTasks } from '@/api/assessments.js'
 import { downloadCsv } from '@/utils/csv.js'
 import { useTableKeyboard } from '@/composables/useTableKeyboard.js'
 import { useEscapeToClose } from '@/composables/useEscapeToClose.js'
@@ -222,6 +292,9 @@ const total = ref(0)
 const items = ref([])
 /** 服务端状态筛选（后端 /api/assessment-tasks 支持 status） */
 const statusFilter = ref('')
+/** 服务端关键词与受试者筛选（契约支持 keyword / subjectId） */
+const keywordFilter = ref('')
+const subjectFilter = ref('')
 
 const loading = ref(false)
 const firstLoading = ref(true)
@@ -231,6 +304,10 @@ const drawerOpen = ref(false)
 const detailLoading = ref(false)
 const detail = ref(null)
 const cancelling = ref(false)
+const inputSnapshot = ref(null)
+const inputLoading = ref(false)
+const inputError = ref('')
+const showSnapshotJson = ref(false)
 /** 后端只允许取消 PENDING 任务（RUNNING 不可取消） */
 const canCancel = computed(() => detail.value?.status === 'PENDING')
 
@@ -294,7 +371,9 @@ async function loadPage(target = page.value) {
     const data = await listAssessmentTasks({
       page: target,
       pageSize: pageSize.value,
-      status: statusFilter.value
+      status: statusFilter.value,
+      keyword: keywordFilter.value.trim(),
+      subjectId: subjectFilter.value.trim()
     })
     if (seq !== requestSeq) return
     items.value = Array.isArray(data?.items) ? data.items : []
@@ -321,10 +400,14 @@ async function openTask(row) {
   const seq = ++detailSeq
   // 先清空：新的一行在加载时不应继续显示上一条的 runId / 跳转目标
   detail.value = null
+  inputSnapshot.value = null
+  inputError.value = ''
+  showSnapshotJson.value = false
   detailLoading.value = true
   drawerOpen.value = true
   // 打开的任务写入 URL，返回时可以直接恢复这个抽屉
   router.replace({ query: { ...route.query, taskId: String(row.taskId) } })
+  loadInputSnapshot(row.taskId, seq)
   try {
     const data = await getAssessmentTask(row.taskId)
     // 迟到的响应（用户已经点了别的任务）必须丢掉，否则抽屉内容和按钮会指向旧任务
@@ -337,6 +420,30 @@ async function openTask(row) {
   } finally {
     if (seq === detailSeq) detailLoading.value = false
   }
+}
+
+async function loadInputSnapshot(taskId, seq) {
+  inputLoading.value = true
+  inputError.value = ''
+  try {
+    const data = await getAssessmentTaskInput(taskId)
+    if (seq !== detailSeq) return
+    inputSnapshot.value = data
+  } catch {
+    if (seq !== detailSeq) return
+    inputSnapshot.value = null
+    inputError.value = '输入快照读取失败；任务详情仍可查看。'
+  } finally {
+    if (seq === detailSeq) inputLoading.value = false
+  }
+}
+
+const snapshotJson = computed(() => JSON.stringify(inputSnapshot.value, null, 2))
+
+/** 关键词 / 受试者筛选都从第 1 页重新查询 */
+function applyFilters() {
+  page.value = 1
+  loadPage(1)
 }
 
 function goReport() {
@@ -424,7 +531,7 @@ onMounted(async () => {
 .filter {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--line);
@@ -434,7 +541,16 @@ onMounted(async () => {
   width: 160px;
 }
 
+.filter__input {
+  width: 210px;
+}
+
+.filter__input--narrow {
+  width: 130px;
+}
+
 .filter__count {
+  margin-left: auto;
   font-size: 12px;
   color: var(--muted);
 }
@@ -495,6 +611,50 @@ onMounted(async () => {
   font-size: 12px;
   line-height: 1.7;
   color: var(--muted);
+}
+
+.snapshot {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+}
+
+.snapshot__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.snapshot__title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.snapshot__empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.snapshot__json {
+  max-height: 320px;
+  margin: 12px 0 0;
+  padding: 12px;
+  overflow: auto;
+  border-radius: 10px;
+  background: var(--surface-sunken, #f6f7f9);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.mono {
+  font-family: var(--font-display);
+  font-size: 12px;
+  word-break: break-all;
 }
 
 .actions {

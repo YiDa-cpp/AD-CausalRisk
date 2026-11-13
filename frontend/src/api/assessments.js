@@ -46,11 +46,20 @@ export function listAssessmentTasks({
   pageSize = 20,
   status = '',
   subjectId = '',
-  keyword = ''
+  keyword = '',
+  from = '',
+  to = '',
+  sort = ''
 } = {}) {
-  return request.get('/assessment-tasks', {
-    params: { page, pageSize, status, subjectId, keyword }
-  })
+  const params = { page, pageSize }
+  if (status) params.status = status
+  const sid = Number(subjectId)
+  if (Number.isInteger(sid) && sid > 0) params.subjectId = sid
+  if (keyword) params.keyword = keyword
+  if (from) params.from = from
+  if (to) params.to = to
+  if (sort) params.sort = sort
+  return request.get('/assessment-tasks', { params })
 }
 
 /**
@@ -63,11 +72,21 @@ export function listAssessments({
   reviewStatus = '',
   riskLevel = '',
   keyword = '',
-  subjectId = ''
+  subjectId = '',
+  from = '',
+  to = '',
+  sort = ''
 } = {}) {
-  return request.get('/assessments', {
-    params: { page, pageSize, reviewStatus, riskLevel, keyword, subjectId }
-  })
+  const params = { page, pageSize }
+  if (reviewStatus) params.reviewStatus = reviewStatus
+  if (riskLevel) params.riskLevel = riskLevel
+  if (keyword) params.keyword = keyword
+  const sid = Number(subjectId)
+  if (Number.isInteger(sid) && sid > 0) params.subjectId = sid
+  if (from) params.from = from
+  if (to) params.to = to
+  if (sort) params.sort = sort
+  return request.get('/assessments', { params })
 }
 
 /** GET /api/assessments/{assessmentId} —— 返回 Assessment（含 agentResult）。 */

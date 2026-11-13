@@ -3,12 +3,26 @@ import request from './request.js'
 /**
  * GET /api/subjects
  *
- * 契约只声明 page（≥1，默认 1）与 pageSize（1..100，默认 20），没有 keyword 参数，
- * 所以关键词检索只能在当前页内做（见 views/doctor/PatientList.vue 的说明）。
+ * 契约参数：page / pageSize / keyword / from / to / sort / status。
+ * keyword 由服务端按档案编号匹配；status ∈ ACTIVE / ARCHIVED。
  * 返回 PageSubject：{ items, page, pageSize, total }
  */
-export function listSubjects({ page = 1, pageSize = 20, keyword = '' } = {}) {
-  return request.get('/subjects', { params: { page, pageSize, keyword } })
+export function listSubjects({
+  page = 1,
+  pageSize = 20,
+  keyword = '',
+  status = '',
+  from = '',
+  to = '',
+  sort = ''
+} = {}) {
+  const params = { page, pageSize }
+  if (keyword) params.keyword = keyword
+  if (status) params.status = status
+  if (from) params.from = from
+  if (to) params.to = to
+  if (sort) params.sort = sort
+  return request.get('/subjects', { params })
 }
 
 /**

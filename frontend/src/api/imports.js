@@ -26,8 +26,22 @@ export function commitImportJob(jobId) {
  * 每行是列表摘要：{ jobId, status, dataVersion, totalRows, validRows, invalidRows,
  *                  createdAt, createdBy }
  */
-export function listImportJobs({ page = 1, pageSize = 10 } = {}) {
-  return request.get('/import-jobs', { params: { page, pageSize } })
+export function listImportJobs({
+  page = 1,
+  pageSize = 10,
+  status = '',
+  keyword = '',
+  from = '',
+  to = '',
+  sort = ''
+} = {}) {
+  const params = { page, pageSize }
+  if (status) params.status = status
+  if (keyword) params.keyword = keyword
+  if (from) params.from = from
+  if (to) params.to = to
+  if (sort) params.sort = sort
+  return request.get('/import-jobs', { params })
 }
 
 /** GET /api/import-jobs/{jobId} —— 单个任务详情（含 errors[]）。 */

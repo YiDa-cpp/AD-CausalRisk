@@ -32,6 +32,14 @@
           placeholder="摘要关键词"
           @keyup.enter="search"
         />
+        <el-input
+          v-model="traceId"
+          class="filter__input filter__input--narrow"
+          size="small"
+          clearable
+          placeholder="traceId"
+          @keyup.enter="search"
+        />
         <el-button size="small" :icon="Search" @click="search">查询</el-button>
         <span class="filter__count">共 {{ total }} 条</span>
       </div>
@@ -71,6 +79,7 @@ const pageSize = ref(20)
 const eventType = ref('')
 const actorId = ref('')
 const keyword = ref('')
+const traceId = ref('')
 const loading = ref(false)
 const error = ref('')
 
@@ -83,6 +92,7 @@ async function load(target = page.value) {
       pageSize: pageSize.value,
       eventType: eventType.value.trim(),
       actorId: actorId.value.trim(),
+      traceId: traceId.value.trim(),
       keyword: keyword.value.trim()
     })
     items.value = Array.isArray(data?.items) ? data.items : []

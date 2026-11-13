@@ -115,6 +115,28 @@
     <!-- 历史导入记录：GET /api/import-jobs，详情与错误 CSV 按 jobId 取 -->
     <DataCard title="历史导入记录" subtitle="每次预检/入库都会留下任务记录；错误明细可导出 CSV。">
       <template #header-extra>
+        <el-select
+          v-model="historyStatus"
+          class="history-filter"
+          size="small"
+          clearable
+          placeholder="状态"
+          @change="loadHistory(1)"
+        >
+          <el-option label="预检就绪" value="PREVIEW_READY" />
+          <el-option label="已入库" value="COMMITTED" />
+          <el-option label="被阻断" value="BLOCKED" />
+          <el-option label="失败" value="FAILED" />
+        </el-select>
+        <el-input
+          v-model="historyKeyword"
+          class="history-filter"
+          size="small"
+          clearable
+          placeholder="任务 ID / 关键词"
+          @keyup.enter="loadHistory(1)"
+          @clear="loadHistory(1)"
+        />
         <el-button text :icon="Refresh" :loading="historyLoading" @click="loadHistory(historyPage)">
           刷新
         </el-button>
@@ -266,6 +288,8 @@ const historyTotal = ref(0)
 const historyLoading = ref(false)
 const historyFirstLoading = ref(true)
 const historyError = ref('')
+const historyStatus = ref('')
+const historyKeyword = ref('')
 
 const detailOpen = ref(false)
 const detailLoading = ref(false)
@@ -289,7 +313,12 @@ async function loadHistory(target = historyPage.value) {
   historyLoading.value = true
   historyError.value = ''
   try {
-    const data = await listImportJobs({ page: target, pageSize: historyPageSize.value })
+    const data = await listImportJobs({
+      page: target,
+      pageSize: historyPageSize.value,
+      status: historyStatus.value,
+      keyword: historyKeyword.value.trim()
+    })
     historyItems.value = Array.isArray(data?.items) ? data.items : []
     historyTotal.value = Number(data?.total ?? historyItems.value.length)
     historyPage.value = target
@@ -530,6 +559,10 @@ function reset() {
 
 .history {
   width: 100%;
+}
+
+.history-filter {
+  width: 150px;
 }
 
 .history-pager {

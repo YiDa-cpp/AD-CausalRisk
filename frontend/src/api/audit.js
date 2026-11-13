@@ -19,9 +19,19 @@ export function listAuditLogsPaged({
   pageSize = 20,
   eventType = '',
   actorId = '',
-  keyword = ''
+  traceId = '',
+  keyword = '',
+  from = '',
+  to = '',
+  sort = ''
 } = {}) {
-  return request.get('/audit-logs/page', {
-    params: { page, pageSize, eventType, actorId, keyword }
-  })
+  const params = { page, pageSize }
+  if (eventType) params.eventType = eventType
+  if (actorId) params.actorId = actorId
+  if (traceId) params.traceId = traceId
+  if (keyword) params.keyword = keyword
+  if (from) params.from = from
+  if (to) params.to = to
+  if (sort) params.sort = sort
+  return request.get('/audit-logs/page', { params })
 }

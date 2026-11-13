@@ -14,6 +14,18 @@
             下载文本版 PDF
           </el-button>
         </el-tooltip>
+        <el-dropdown :disabled="!report" @command="downloadFormat">
+          <el-button :icon="Download" :disabled="!report" :loading="downloading">
+            导出研究归档
+            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="html">HTML</el-dropdown-item>
+              <el-dropdown-item command="json">JSON</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </template>
     </PageHeader>
 
@@ -144,7 +156,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Download, Printer, Refresh, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowDown, Download, Printer, Refresh, WarningFilled } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -257,12 +269,21 @@ function print() {
 
 /** 后端文本版 PDF（PDFBox + ReportSans.ttf），只含文字结论。 */
 async function download() {
+  await exportReport('pdf')
+}
+
+/** HTML / JSON 研究归档：与 PDF 共用下载端点，仅 format 不同。 */
+async function downloadFormat(format) {
+  await exportReport(format)
+}
+
+async function exportReport(format) {
   if (!report.value || downloading.value) return
   const audience = userStore.primaryRole === 'DOCTOR' ? 'doctor' : 'research'
   downloading.value = true
   try {
-    const filename = await downloadReport(report.value.assessmentId, { format: 'pdf', audience })
-    ElMessage.success(`已开始下载 ${filename}（文本版）`)
+    const filename = await downloadReport(report.value.assessmentId, { format, audience })
+    ElMessage.success(`已开始下载 ${filename}`)
   } catch (problem) {
     ElMessage.error(problem?.message || '报告导出失败，请稍后重试')
   } finally {
