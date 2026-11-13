@@ -1,8 +1,22 @@
 # 离线研究计算、固定训练与图模型
 
+[独立研究请求候选](../docs/Research_Table_Agent_Contract.md)提供宿主绑定的内存请求适配及标准库返回校验，附OpenAPI草案/人工样例和Java字段映射。新模型不接受旧DTO重命名；候选尚无HTTP监听，活动契约、默认服务和数据准入门槛保持。
+
+[统一表格评估入口](../docs/Table_Assessment_Integration.md)将原许可预测与保存参考SHAP连接成同一输入/模型状态的内存结果，保留来源准入、独立解释权限和失败无部分数值。它是后续真实业务接入的计算步骤，不读取真实数据/参数、不新增HTTP或更换默认服务。
+
 新七/十变量模型的[Python接入候选](../docs/Research_Model_Integration_Candidate.md)区分课程/旧V8 HTTP、离线CLI与现有内存API，提供字段差异和纯标准库人工请求/响应示例。候选不新增服务或共享契约；离线九组合与内存表格六组合的支持边界分别保留。
 
 同一人工解析案例的[预测/解释绑定候选](../docs/Prediction_Explanation_Binding_Candidate.md)复用原精确分组Shapley与单次调度，附固定JSON及16项错绑/数值检查；只需原锁NumPy。它不是实际研究模型运行或生产报告API，LIME与真实宿主证据保持未执行/未核验。
+
+## 实验配置导出与参数核验
+
+[FR-22配置元数据导出](../docs/Research_Experiment_Config.md)新增纯标准库内存导出/回读，显式选择两规格三算法、原始24月策略、保存参考政策、seed/划分政策及5项发布级摘要；特征/单位复用原准入定义，个人内容/路径/参数/许可无导出字段。人工示例：`python -B -S -m research_runtime.examples.experiment_config_constructed`。新增17项检查加入标准库层，当前52项；历史35项记录仍保留原范围，不冒充新远端结果。
+
+[实际参数组件核验与人工绑定](../docs/Model_Artifact_Admission.md)续轮通过：修正为逐实例基线，6参数各1读/加载、30状态变动检查通过；同进程复用模型完成6完整＋3双侧MRI缺失人工案例，69次CIF均返回，两原因端点差及重构最大误差0。首轮停止记录保持，不以续轮改写历史；未读临床或拟合、未生成真实上下文/许可，完整宿主仍NO_GO。
+
+[源码/锁及安装记录检查](../docs/Research_Runtime_Binding.md)补充表格数值8成员范围、两种锁字节对象和12版本/6274带哈希安装成员的一致性证据；3875无哈希成员、受阻模块导入、发行来源/缓存身份不升级为认证。未改原锁或环境，未签发可信上下文/许可。
+
+[图实验配置导出](../docs/Research_Experiment_Config.md#图模型配置)复用同一API，新增独立图schema、固定协议三臂和种子，区分单种子CIF与三种子CIF等权均值；各参数摘要按种子绑定，拒绝漏种子/重复参数/错误聚合策略。`python -B -S -m research_runtime.examples.graph_experiment_config_constructed`输出人工均值配置，`--arm self_only --single-seed 20260927`输出单模型配置。无需Torch/NumPy/参数读取；新增17检查加入标准库层，当前69项，原六表格v1字节不变。
 
 ## 新增离线评价与监测
 
@@ -25,7 +39,7 @@
 
 ```powershell
 # 标准库专题
-python -B -S -m unittest research_runtime.tests.test_competing_event_functional research_runtime.tests.test_decision_curve -v
+python -B -S -m unittest research_runtime.tests.test_competing_event_functional research_runtime.tests.test_decision_curve research_runtime.tests.test_experiment_config research_runtime.tests.test_graph_experiment_config -v
 
 # NumPy专题，无需pandas、Torch或预测依赖
 .venv-research/Scripts/python.exe -B -m unittest research_runtime.tests.test_feature_drift research_runtime.tests.test_performance_monitor research_runtime.tests.test_lifecycle_monitor research_runtime.tests.test_graph_structure_stability -v
@@ -44,7 +58,7 @@ python -B -S -m unittest research_runtime.tests.test_competing_event_functional 
 
 | 层 | 显式测试模块（`research_runtime.tests`下） | 依赖与范围 |
 | --- | --- | --- |
-| 标准库，35项 | `test_competing_event_functional`、`test_decision_curve` | `-S`禁用site packages；精确核功能量及未知结局界限 |
+| 标准库，69项 | `test_competing_event_functional`、`test_decision_curve`、`test_experiment_config`、`test_graph_experiment_config` | `-S`禁用site packages；精确核功能量、未知结局界限及配置绑定/受限导出 |
 | NumPy，139项 | `test_feature_drift`、`test_performance_monitor`、`test_lifecycle_monitor`、`test_graph_structure_stability`、`test_prediction_explanation_candidate` | 仅安装原锁中的NumPy 2.4.6；人工监测/隐私/结构稳定性及预测/解释错绑检查 |
 
 最小NumPy环境可用以下命令建立；Linux/macOS将解释器路径换成`.venv-primitives/bin/python`：
@@ -52,7 +66,7 @@ python -B -S -m unittest research_runtime.tests.test_competing_event_functional 
 ```powershell
 py -3.11 -m venv .venv-primitives
 .venv-primitives/Scripts/python.exe -m pip install --only-binary=:all: --constraint research_runtime/requirements.lock numpy
-.venv-primitives/Scripts/python.exe -B -S -m unittest research_runtime.tests.test_competing_event_functional research_runtime.tests.test_decision_curve -v
+.venv-primitives/Scripts/python.exe -B -S -m unittest research_runtime.tests.test_competing_event_functional research_runtime.tests.test_decision_curve research_runtime.tests.test_experiment_config research_runtime.tests.test_graph_experiment_config -v
 .venv-primitives/Scripts/python.exe -B -m unittest research_runtime.tests.test_feature_drift research_runtime.tests.test_performance_monitor research_runtime.tests.test_lifecycle_monitor research_runtime.tests.test_graph_structure_stability research_runtime.tests.test_prediction_explanation_candidate -v
 ```
 

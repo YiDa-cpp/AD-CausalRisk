@@ -1,5 +1,7 @@
 # Java与Python联调约定
 
+独立表格研究通道提供 Python 内存适配、语义校验和环回合成宿主。Java 的研究任务接口接收已登记的人工冻结快照，调用独立宿主并保存双原因 CIF。以下描述当前演示接口。[研究契约](Research_Table_Agent_Contract.md) · [Java 研究任务](../backend/README.md#表格研究评估适配)
+
 Python只承担合成工作流，不访问Java数据库、不管理用户会话、不写业务任务表。Java向Python传当前任务需要的合成输入，按contracts/python-agent.openapi.json校验结果后保存；前端只调用Java。
 
 | Python情况 | HTTP | Java应做什么 |
