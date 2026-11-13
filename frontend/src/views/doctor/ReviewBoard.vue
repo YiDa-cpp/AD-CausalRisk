@@ -40,7 +40,11 @@
 
       <el-table v-else :data="items" class="table" row-key="assessmentId" @keydown.enter="onRowKeydown">
         <el-table-column prop="assessmentId" label="评估 ID" min-width="100" />
-        <el-table-column prop="subjectId" label="受试者" min-width="100" />
+        <el-table-column label="受试者" min-width="150">
+          <template #default="{ row }">
+            {{ row.subjectAlias || row.subjectCode || `#${row.subjectId}` }}
+          </template>
+        </el-table-column>
         <el-table-column label="风险概率" min-width="120">
           <template #default="{ row }">{{ formatScore(row) }}</template>
         </el-table-column>
@@ -101,7 +105,7 @@
             <p class="score__label">风险概率</p>
             <p class="score__value">{{ formatScore(current) }}</p>
             <p class="score__meta">
-              预测窗口 {{ current.agentResult?.predictionWindowMonths ?? '—' }} 个月 ·
+              预测窗口 {{ currentWindow ?? '—' }} 个月 ·
               {{ current.agentResult?.dataVersion || '—' }}
             </p>
           </div>
@@ -161,7 +165,7 @@ import DataCard from '@/components/common/DataCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import CausalGraph from '@/components/charts/CausalGraph.vue'
-import { getAssessment, listAssessments, reviewAssessment } from '@/api/assessments.js'
+import { getAssessment, getAssessmentTaskInput, listAssessments, reviewAssessment } from '@/api/assessments.js'
 import { useTableKeyboard } from '@/composables/useTableKeyboard.js'
 import { useEscapeToClose } from '@/composables/useEscapeToClose.js'
 
@@ -181,6 +185,20 @@ const openingId = ref(null)
 
 const drawerOpen = ref(false)
 const current = ref(null)
+/** 预测窗口来自任务输入快照（AgentResult 不含该字段） */
+const currentWindow = ref(null)
+
+async function loadCurrentWindow() {
+  currentWindow.value = null
+  const taskId = current.value?.taskId
+  if (!taskId) return
+  try {
+    const input = await getAssessmentTaskInput(taskId)
+    currentWindow.value = input?.request?.predictionWindowMonths ?? null
+  } catch {
+    currentWindow.value = null
+  }
+}
 const detailLoading = ref(false)
 const comment = ref('')
 const submitting = ref('')
@@ -264,6 +282,7 @@ async function openReview(row) {
     current.value = detail
     comment.value = ''
     drawerOpen.value = true
+    loadCurrentWindow()
     // 打开哪条复核就写到 URL：从报告页返回时能直接回到这个抽屉
     router.replace({ query: { ...route.query, assessmentId: String(row.assessmentId) } })
   } catch {
@@ -332,6 +351,7 @@ onMounted(async () => {
         current.value = await getAssessment(fromQuery)
         comment.value = ''
         drawerOpen.value = true
+        loadCurrentWindow()
       } catch {
         // 该评估不可读或不存在，保持列表视图
       } finally {

@@ -469,7 +469,7 @@
           </div>
           <div>
             <span>预测窗口</span>
-            {{ previewDetail.agentResult?.predictionWindowMonths ?? '—' }} 个月
+            {{ previewWindow ?? '—' }} 个月
           </div>
           <div>
             <span>复核状态</span>
@@ -551,6 +551,7 @@ import { listFollowUps } from '@/api/followups.js'
 import {
   getAssessment,
   getAssessmentReviews,
+  getAssessmentTaskInput,
   listAssessments,
   listAssessmentTasks
 } from '@/api/assessments.js'
@@ -598,6 +599,9 @@ const previewOpen = ref(false)
 const previewItem = ref(null)
 const previewDetail = ref(null)
 const previewLoading = ref(false)
+/** 预测窗口来自任务输入快照（AgentResult 不含该字段） */
+const previewWindow = ref(null)
+const reportWindowMap = ref({})
 
 const RISK_RANK = { HIGH: 3, MEDIUM: 2, LOW: 1, UNAVAILABLE: 0 }
 
@@ -1009,21 +1013,26 @@ function openReport(event) {
   if (id) router.push(`/reports/${id}`)
 }
 
-/** 逐个补齐报告库卡片需要的详情字段（预测窗口），失败保持"—"。 */
+/** 逐个补齐报告库卡片需要的详情（含输入快照里的预测窗口），失败保持"—"。 */
 async function loadReportDetails(assessments) {
   const targets = assessments.slice(0, 20)
   if (!targets.length) return
   const results = await Promise.allSettled(
-    targets.map((assessment) => getAssessment(assessment.assessmentId))
+    targets.map(async (assessment) => {
+      const detail = await getAssessment(assessment.assessmentId)
+      const input = await getAssessmentTaskInput(assessment.taskId).catch(() => null)
+      return { detail, input }
+    })
   )
   results.forEach((result, index) => {
     if (result.status !== 'fulfilled' || !result.value) return
     const id = targets[index].assessmentId
-    reportDetailMap.value[id] = result.value
+    const { detail, input } = result.value
+    if (detail) reportDetailMap.value[id] = detail
+    const windowValue = input?.request?.predictionWindowMonths ?? null
+    reportWindowMap.value[id] = windowValue
     const row = reportLibrary.value.find((item) => item.assessmentId === id)
-    if (row && row.predictionWindowMonths === undefined) {
-      row.predictionWindowMonths = result.value.agentResult?.predictionWindowMonths
-    }
+    if (row) row.predictionWindowMonths = windowValue ?? undefined
   })
 }
 
@@ -1034,10 +1043,22 @@ async function openPreview(item) {
   previewOpen.value = true
   previewLoading.value = true
   previewDetail.value = null
+  previewWindow.value = null
   try {
     previewDetail.value =
       reportDetailMap.value[item.assessmentId] || (await getAssessment(item.assessmentId))
     if (previewDetail.value) reportDetailMap.value[item.assessmentId] = previewDetail.value
+    if (reportWindowMap.value[item.assessmentId] !== undefined) {
+      previewWindow.value = reportWindowMap.value[item.assessmentId]
+    } else if (previewDetail.value?.taskId) {
+      try {
+        const input = await getAssessmentTaskInput(previewDetail.value.taskId)
+        previewWindow.value = input?.request?.predictionWindowMonths ?? null
+        reportWindowMap.value[item.assessmentId] = previewWindow.value
+      } catch {
+        previewWindow.value = null
+      }
+    }
   } catch {
     previewDetail.value = null
   } finally {

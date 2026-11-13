@@ -23,14 +23,8 @@ const MIN_VISIBLE_MS = 480
 
 let hideTimer = null
 let shownAt = 0
-/** 初始导航（含登录后的首次重定向）由首屏 boot 动画负责，避免两层叠在一起 */
-let firstNavigation = true
 
 function show() {
-  if (firstNavigation) {
-    firstNavigation = false
-    return
-  }
   if (hideTimer) {
     clearTimeout(hideTimer)
     hideTimer = null

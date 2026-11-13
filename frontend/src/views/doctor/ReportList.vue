@@ -46,7 +46,11 @@
         @keydown.enter="onRowKeydown"
       >
         <el-table-column prop="assessmentId" label="评估 ID" min-width="100" />
-        <el-table-column prop="subjectId" label="受试者" min-width="100" />
+        <el-table-column label="受试者" min-width="150">
+          <template #default="{ row }">
+            {{ row.subjectAlias || row.subjectCode || `#${row.subjectId}` }}
+          </template>
+        </el-table-column>
         <el-table-column label="风险概率" min-width="120">
           <template #default="{ row }">{{ formatScore(row) }}</template>
         </el-table-column>

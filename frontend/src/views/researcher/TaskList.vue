@@ -51,7 +51,11 @@
 
       <el-table v-else :data="items" class="table" row-key="taskId" @row-click="openTask" @keydown.enter="onRowKeydown">
         <el-table-column prop="taskId" label="任务 ID" width="110" />
-        <el-table-column prop="subjectId" label="受试者" width="110" />
+        <el-table-column label="受试者" min-width="140">
+          <template #default="{ row }">
+            {{ row.subjectAlias || row.subjectCode || `#${row.subjectId}` }}
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="130">
           <template #default="{ row }">
             <StatusTag :type="row.status" />
@@ -143,6 +147,15 @@
         <div class="actions">
           <el-button :disabled="!detail.assessmentId" @click="goReport">查看报告</el-button>
           <el-button type="primary" :disabled="!detail.assessmentId" @click="goReview">去复核</el-button>
+          <el-button
+            v-if="canCancel"
+            type="danger"
+            plain
+            :loading="cancelling"
+            @click="cancelTask"
+          >
+            取消任务
+          </el-button>
         </div>
       </template>
     </el-drawer>
@@ -150,14 +163,19 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Cpu, Download, Refresh, WarningFilled } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DataCard from '@/components/common/DataCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import { getAssessmentTask, listAssessmentTasks } from '@/api/assessments.js'
+import {
+  cancelAssessmentTask,
+  getAssessmentTask,
+  listAssessmentTasks
+} from '@/api/assessments.js'
 import { downloadCsv } from '@/utils/csv.js'
 import { useTableKeyboard } from '@/composables/useTableKeyboard.js'
 import { useEscapeToClose } from '@/composables/useEscapeToClose.js'
@@ -179,6 +197,9 @@ const loadError = ref('')
 const drawerOpen = ref(false)
 const detailLoading = ref(false)
 const detail = ref(null)
+const cancelling = ref(false)
+/** 后端只允许取消 PENDING 任务（RUNNING 不可取消） */
+const canCancel = computed(() => detail.value?.status === 'PENDING')
 
 /** 列表请求序号：翻页竞态时只认最新一次响应 */
 let requestSeq = 0
@@ -269,6 +290,30 @@ async function openTask(row) {
 
 function goReport() {
   router.push(`/reports/${detail.value.assessmentId}`)
+}
+
+/** 取消排队中的任务：成功后刷新详情与列表。 */
+async function cancelTask() {
+  if (!detail.value?.taskId || cancelling.value) return
+  try {
+    await ElMessageBox.confirm('取消后该任务不会产生评估结果，确定取消吗？', '取消任务', {
+      confirmButtonText: '取消任务',
+      cancelButtonText: '返回',
+      type: 'warning'
+    })
+  } catch {
+    return
+  }
+  cancelling.value = true
+  try {
+    detail.value = await cancelAssessmentTask(detail.value.taskId)
+    ElMessage.success('任务已取消')
+    await loadPage(page.value)
+  } catch {
+    // request.js 已提示（例如任务已在运行）
+  } finally {
+    cancelling.value = false
+  }
 }
 
 const { onRowKeydown } = useTableKeyboard(items, openTask)

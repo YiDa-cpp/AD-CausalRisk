@@ -61,7 +61,7 @@
           </div>
           <div class="kv__item">
             <dt>预测窗口</dt>
-            <dd>{{ report.agentResult?.predictionWindowMonths ?? '—' }} 个月</dd>
+            <dd>{{ predictionWindow ?? '—' }} 个月</dd>
           </div>
         </dl>
       </section>
@@ -150,6 +150,7 @@ import StatusTag from '@/components/common/StatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import CausalGraph from '@/components/charts/CausalGraph.vue'
 import { downloadReport, getReport } from '@/api/reports.js'
+import { getAssessmentTaskInput } from '@/api/assessments.js'
 import { getSubjectDetail } from '@/api/subjects.js'
 import { useUserStore } from '@/stores/user.js'
 
@@ -158,6 +159,8 @@ const userStore = useUserStore()
 
 const report = ref(null)
 const subject = ref(null)
+/** 预测窗口来自任务输入快照（agentResult 本身不含该字段） */
+const predictionWindow = ref(null)
 const loading = ref(false)
 const loadError = ref('')
 const downloading = ref(false)
@@ -212,9 +215,18 @@ async function load() {
   }
   loading.value = true
   loadError.value = ''
+  predictionWindow.value = null
   try {
     const data = await getReport(id)
     report.value = data
+    if (data?.taskId) {
+      try {
+        const input = await getAssessmentTaskInput(data.taskId)
+        predictionWindow.value = input?.request?.predictionWindowMonths ?? null
+      } catch {
+        predictionWindow.value = null
+      }
+    }
     if (data?.subjectId) {
       try {
         const detail = await getSubjectDetail(data.subjectId)
@@ -226,6 +238,7 @@ async function load() {
   } catch (problem) {
     report.value = null
     subject.value = null
+    predictionWindow.value = null
     loadError.value =
       problem?.errorCode === 'NETWORK_ERROR'
         ? '无法连接服务器，请确认后端已启动。'

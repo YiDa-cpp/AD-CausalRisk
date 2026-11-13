@@ -51,6 +51,20 @@ export function getAssessmentTask(taskId) {
 }
 
 /**
+ * GET /api/assessment-tasks/{id}/input —— 任务输入快照。
+ * 返回 { available, inputDigest, dataVersion, capturedAt, request, qualityCheckId, provenance }；
+ * 历史任务没有快照时 available=false。request 里包含创建评估时的 predictionWindowMonths。
+ */
+export function getAssessmentTaskInput(taskId) {
+  return request.get(`/assessment-tasks/${taskId}/input`)
+}
+
+/** POST /api/assessment-tasks/{taskId}/cancel —— 仅 PENDING 任务可取消。 */
+export function cancelAssessmentTask(taskId) {
+  return request.post(`/assessment-tasks/${taskId}/cancel`)
+}
+
+/**
  * GET /api/assessment-tasks —— 任务历史（分页，按 id 倒序）。
  * 每行是摘要（不含 stages），详情仍需 getAssessmentTask(taskId)。
  */
