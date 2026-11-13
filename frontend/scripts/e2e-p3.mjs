@@ -183,6 +183,18 @@ try {
       return respond({ items: [], page: 1, pageSize: 100, total: 0 })
     }
     if (path === '/api/subjects/1/follow-ups') return respond([])
+    if (path === '/api/subjects/1/capabilities') {
+      return respond({
+        readRaw: true,
+        manage: false,
+        record: true,
+        writeClinical: true,
+        requestAssessment: true
+      })
+    }
+    if (path === '/api/subjects/1/feature-sources' || path === '/api/subjects/1/visit-sources') {
+      return respond({ items: [] })
+    }
     if (path.startsWith('/api/') && path.endsWith('/reviews') && method === 'GET') return respond([])
     if (path === '/api/assessments/99/review' && method === 'POST') {
       return respond({

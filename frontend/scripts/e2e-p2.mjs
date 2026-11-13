@@ -95,7 +95,7 @@ async function openAs(role, handlers) {
       return req.respond({
         status: custom.status || 200,
         contentType: 'application/json',
-        body: envelope(typeof custom.body === 'function' ? custom.body() : custom.body)
+        body: envelope(typeof custom.body === 'function' ? custom.body(pathOf(url)) : custom.body)
       })
     }
     if (pathOf(url) === '/api/auth/login' || pathOf(url) === '/api/me') {
@@ -143,7 +143,14 @@ try {
     // 抽屉打开时会拉基础信息 + 评估/任务/随访/复核；这里给空数据，避免打到不存在的后端
     { match: (path, m) => /^\/api\/subjects\/\d+$/.test(path) && m === 'GET', body: () => ({ subject: SUBJECT(1), visits: [], features: [] }) },
     { match: (path) => path === '/api/assessments' || path === '/api/assessment-tasks', body: () => ({ items: [], page: 1, pageSize: 100, total: 0 }) },
-    { match: (path) => path === '/api/subjects/1/follow-ups' || path.startsWith('/api/') && path.endsWith('/reviews'), body: () => [] }
+    { match: (path) => path === '/api/subjects/1/follow-ups' || path.startsWith('/api/') && path.endsWith('/reviews'), body: () => [] },
+    {
+      match: (path) => /^\/api\/subjects\/\d+\/(capabilities|feature-sources|visit-sources)$/.test(path),
+      body: (path) =>
+        path.endsWith('/capabilities')
+          ? { readRaw: true, manage: true, record: true, writeClinical: true, requestAssessment: true }
+          : { items: [] }
+    }
   ])
 
   check('doctor: 菜单可点击进入档案', await clickMenu(page, '受试者档案'), 'sidebar item')
@@ -184,6 +191,10 @@ try {
       body: JOB
     },
     {
+      match: (path, m) => path === '/api/import-jobs' && m === 'GET',
+      body: { items: [], page: 1, pageSize: 10, total: 0 }
+    },
+    {
       match: (path, m) => path === '/api/import-jobs/42/commit' && m === 'POST',
       body: { ...JOB, status: 'COMMITTED' }
     },
@@ -193,7 +204,10 @@ try {
   check('researcher: 菜单可点击进入导入', await clickMenu(rPage, '数据导入'), 'sidebar item')
   await rPage.waitForFunction(() => location.pathname === '/imports', { timeout: 15000 })
   await rPage.waitForSelector('.el-upload-dragger', { timeout: 15000 })
-  await rPage.waitForSelector('.import-center .empty-state', { timeout: 15000 })
+  await rPage.waitForFunction(
+    () => (document.body.textContent || '').includes('还没有上传文件'),
+    { timeout: 15000 }
+  )
   const beforeText = await rPage.evaluate(
     () => document.querySelector('.import-center .empty-state')?.textContent || ''
   )
