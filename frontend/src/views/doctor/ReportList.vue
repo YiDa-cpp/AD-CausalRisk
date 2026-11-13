@@ -12,9 +12,9 @@
     <DataCard padding="none">
       <div class="filter">
         <el-radio-group v-model="filter" size="small" @change="loadPage(1)">
-          <el-radio-button label="ALL">全部</el-radio-button>
-          <el-radio-button label="PENDING">待复核</el-radio-button>
-          <el-radio-button label="ACKNOWLEDGED">已确认</el-radio-button>
+          <el-radio-button value="ALL">全部</el-radio-button>
+          <el-radio-button value="PENDING">待复核</el-radio-button>
+          <el-radio-button value="ACKNOWLEDGED">已确认</el-radio-button>
         </el-radio-group>
         <span class="filter__count">共 {{ total }} 条 · 当前页 {{ items.length }} 条</span>
       </div>

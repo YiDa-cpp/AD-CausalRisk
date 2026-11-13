@@ -3,8 +3,8 @@
     <PageHeader back title="待办复核" subtitle="按时间倒序展示评估结果，最新的在前。">
       <template #extra>
         <el-radio-group v-model="filter" size="small" @change="loadPage(1)">
-          <el-radio-button label="ALL">全部</el-radio-button>
-          <el-radio-button label="PENDING">待复核</el-radio-button>
+          <el-radio-button value="ALL">全部</el-radio-button>
+          <el-radio-button value="PENDING">待复核</el-radio-button>
         </el-radio-group>
         <el-button :icon="Refresh" :loading="loading" @click="loadPage(page)">刷新</el-button>
       </template>

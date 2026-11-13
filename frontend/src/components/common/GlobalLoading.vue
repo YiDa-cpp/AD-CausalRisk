@@ -12,35 +12,45 @@ import { useRouter } from 'vue-router'
 import NeuroLoader from '@/components/common/NeuroLoader.vue'
 
 /**
- * 全局加载动画：路由切换时覆盖整页，最小可见时长 480ms，避免一闪而过。
+ * 全局加载动画：路由切换时覆盖整页。
+ *
+ * 只在"确实慢"时才出现：路由在 240ms 内完成就完全不显示，
+ * 避免本地/缓存良好的切页每次都演一遍动画，显得笨重。
  *
  * 遮罩不拦截点击（pointer-events: none），这样自动化测试与用户在过渡期间的
  * 操作不会被挡住；它只负责"看得见"的加载反馈。
  */
 const router = useRouter()
 const visible = ref(false)
-const MIN_VISIBLE_MS = 480
+const SHOW_DELAY_MS = 240
 
+let showTimer = null
 let hideTimer = null
-let shownAt = 0
 
 function show() {
   if (hideTimer) {
     clearTimeout(hideTimer)
     hideTimer = null
   }
-  if (visible.value) return
-  shownAt = Date.now()
-  visible.value = true
+  if (visible.value || showTimer) return
+  showTimer = window.setTimeout(() => {
+    showTimer = null
+    visible.value = true
+  }, SHOW_DELAY_MS)
 }
 
 function hide() {
-  const elapsed = Date.now() - shownAt
-  const delay = Math.max(0, MIN_VISIBLE_MS - elapsed)
+  // 还没到显示阈值就结束了：直接取消，不播放。
+  if (showTimer) {
+    clearTimeout(showTimer)
+    showTimer = null
+  }
+  if (!visible.value) return
+  if (hideTimer) clearTimeout(hideTimer)
   hideTimer = window.setTimeout(() => {
     visible.value = false
     hideTimer = null
-  }, delay)
+  }, 0)
 }
 
 onMounted(() => {
@@ -50,6 +60,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (showTimer) clearTimeout(showTimer)
   if (hideTimer) clearTimeout(hideTimer)
 })
 </script>

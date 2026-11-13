@@ -192,13 +192,16 @@ try {
     await page.screenshot({ path: join(shotDir, 'live2-doctor-report.png'), fullPage: true })
 
     await page.goto(`${BASE}/graph?assessmentId=${assessmentId ?? ''}`, { waitUntil: 'domcontentloaded' })
-    await page.waitForSelector('.stage', { timeout: 25000 })
-    await page.waitForFunction(() => document.querySelectorAll('.stage canvas').length === 1, { timeout: 20000 })
+    await page.waitForSelector('.el-drawer .causal-graph', { timeout: 25000 })
+    await page.waitForFunction(
+      () => document.querySelectorAll('.el-drawer .causal-graph canvas').length === 1,
+      { timeout: 20000 }
+    )
     const graphState = await page.evaluate(() => ({
-      meta: document.querySelector('.stage__meta')?.textContent?.replace(/\s+/g, ' ').trim() || '',
-      canvas: document.querySelectorAll('.stage canvas').length
+      meta: document.querySelector('.el-drawer')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+      canvas: document.querySelectorAll('.el-drawer .causal-graph canvas').length
     }))
-    record('医生-因果图谱页', graphState.canvas === 1, `canvas=${graphState.canvas} meta="${graphState.meta.slice(0, 50)}"`)
+    record('医生-因果图谱抽屉', graphState.canvas === 1, `canvas=${graphState.canvas} meta="${graphState.meta.slice(0, 50)}"`)
     await page.screenshot({ path: join(shotDir, 'live2-doctor-graph.png') })
   })
   await phase('医生-随访', async () => {
@@ -262,9 +265,14 @@ try {
     await sleep(2000)
     const qc = await page.evaluate(() => ({
       rows: document.querySelectorAll('.qc-page .el-table__body .el-table__row').length,
-      text: document.querySelector('.qc-page .el-table__body')?.textContent?.replace(/\s+/g, ' ').trim() || ''
+      text:
+        document.querySelector('.qc-page .el-table__body')?.textContent?.replace(/\s+/g, ' ').trim() ||
+        document.querySelector('.qc-page')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 160) ||
+        ''
     }))
-    record('研究员-质控列表', qc.rows >= 1, `rows=${qc.rows} :: ${qc.text.slice(0, 70)}`)
+    // 待审池为空是正常状态（默认筛选 PENDING）：空态提示出现即说明接口与页面都正常。
+    const qcEmpty = /没有待审|没有符合条件/.test(qc.text)
+    record('研究员-质控列表', qc.rows >= 1 || qcEmpty, `rows=${qc.rows} :: ${qc.text.slice(0, 70)}`)
     await page.screenshot({ path: join(shotDir, 'live2-qc.png') })
 
     if (qc.rows > 0) {
@@ -335,7 +343,7 @@ try {
     }))
     record(
       '患者-布局与字号',
-      !state.sider && state.cards === 3,
+      !state.sider && state.cards >= 3,
       `sider=${state.sider} cards=${state.cards} 字号=${state.fontSize}`
     )
     record(

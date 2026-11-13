@@ -18,11 +18,17 @@ app.use(router)
 
 app.mount('#app')
 
-// 首屏加载动画：Vue 挂载完成后至少保留 900ms，避免本地秒开时"一闪而过"
+// 首屏加载层：只有"确实等了一段时间"才值得播放。
+// 秒开（本地、缓存命中）时立即撤掉，避免把一个并不存在的等待演成动画。
+const BOOT_MIN_VISIBLE_MS = 420
 const boot = document.getElementById('boot')
 if (boot) {
-  window.setTimeout(() => {
+  const startedAt = Number(window.__bootStartedAt || 0)
+  const elapsed = startedAt > 0 ? performance.now() - startedAt : Number.POSITIVE_INFINITY
+  if (elapsed >= BOOT_MIN_VISIBLE_MS) {
     boot.classList.add('app-boot--done')
-    window.setTimeout(() => boot.remove(), 420)
-  }, 900)
+    window.setTimeout(() => boot.remove(), 320)
+  } else {
+    boot.remove()
+  }
 }

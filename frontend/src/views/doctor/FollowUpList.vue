@@ -3,8 +3,8 @@
     <PageHeader back title="随访计划" subtitle="按受试者查看随访，或汇总所有待办复诊。">
       <template #extra>
         <el-radio-group v-model="view" size="small" @change="onViewChange">
-          <el-radio-button label="BY_SUBJECT">按受试者</el-radio-button>
-          <el-radio-button label="ALL">全部待办</el-radio-button>
+          <el-radio-button value="BY_SUBJECT">按受试者</el-radio-button>
+          <el-radio-button value="ALL">全部待办</el-radio-button>
         </el-radio-group>
         <el-button :icon="Refresh" :loading="loading || allLoading" @click="reload">刷新</el-button>
         <el-button :icon="Download" :disabled="!canExport" @click="exportCsv">导出 CSV</el-button>

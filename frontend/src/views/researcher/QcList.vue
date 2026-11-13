@@ -3,10 +3,10 @@
     <PageHeader back title="数据质控" subtitle="导入后的异常项由系统列出，研究员或管理员逐条通过/驳回。">
       <template #extra>
         <el-radio-group v-model="status" size="small" @change="reload">
-          <el-radio-button label="PENDING">待审</el-radio-button>
-          <el-radio-button label="APPROVED">已通过</el-radio-button>
-          <el-radio-button label="REJECTED">已驳回</el-radio-button>
-          <el-radio-button label="">全部</el-radio-button>
+          <el-radio-button value="PENDING">待审</el-radio-button>
+          <el-radio-button value="APPROVED">已通过</el-radio-button>
+          <el-radio-button value="REJECTED">已驳回</el-radio-button>
+          <el-radio-button value="">全部</el-radio-button>
         </el-radio-group>
         <el-button :icon="Refresh" @click="reload">刷新</el-button>
       </template>

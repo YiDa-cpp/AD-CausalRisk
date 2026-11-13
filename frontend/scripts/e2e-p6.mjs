@@ -116,6 +116,12 @@ try {
     if (path === '/api/subjects/1') return respond({ subject: SUBJECT, visits: [], features: [] })
     if (path === '/api/reports/99') return respond(ASSESSMENT)
     if (path === '/api/assessments/99') return respond(ASSESSMENT)
+    if (path === '/api/assessments/99/reviews') return respond([])
+    if (/^\/api\/assessment-tasks\/\d+\/input$/.test(path)) {
+      return respond({ request: { predictionWindowMonths: 24 } })
+    }
+    // 报告页/图谱页还会读一些辅助接口；未桩时给空信封，避免落到真实后端触发 401 跳登录。
+    if (path.startsWith('/api/')) return respond(null)
     return req.continue()
   })
 

@@ -177,10 +177,10 @@
             <div class="reports-head">
               <span class="reports-count">共 {{ reportLibrary.length }} 份报告</span>
               <el-radio-group v-model="reportSort" size="small">
-                <el-radio-button label="timeDesc">最新优先</el-radio-button>
-                <el-radio-button label="timeAsc">最早优先</el-radio-button>
-                <el-radio-button label="riskDesc">风险高→低</el-radio-button>
-                <el-radio-button label="riskAsc">风险低→高</el-radio-button>
+                <el-radio-button value="timeDesc">最新优先</el-radio-button>
+                <el-radio-button value="timeAsc">最早优先</el-radio-button>
+                <el-radio-button value="riskDesc">风险高→低</el-radio-button>
+                <el-radio-button value="riskAsc">风险低→高</el-radio-button>
               </el-radio-group>
               <el-button text size="small" :loading="timelineLoading" @click="loadTimeline">
                 刷新

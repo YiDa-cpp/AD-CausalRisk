@@ -47,7 +47,32 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 
 > 判定标准：**后端接口已就绪并已确认路径/结构**，只差前端交互入口。全部为纯前端改动。
 
-### P1-1 评估任务的「取消 / 提交」
+### 未接入端点总清单（2026-11-12 清点，16 项待办）
+
+> 口径：接口矩阵对照 `contracts/java-business.target.openapi.json` 与后端 Controller，筛出「后端已存在、前端尚未封装或未接入 UI」的端点；`GET /api`（根转发）、`/reports/{id}/download`（已用 fetch 接入 PDF）、`/assessment-tasks/{id}/cancel`、`/assessment-tasks/{id}/input` 不计入。导入历史列表与详情合并为 1 项，合计 **16 项**。
+
+| # | 优先级 | 端点 | 现状 | 缺失原因 / 阻塞点 | 对应条目 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | P1 | `POST /api/assessment-tasks/submit` | 未封装，批量评估仍走同步 create | 需产品确认异步提交交互（进度轮询、失败重试、取消时序），否则只是换个入口重复同步阻塞 | P1-1 |
+| 2 | P1 | `GET /api/subjects/{id}/feature-sources` | 未封装，档案抽屉无「数据来源」页 | 需产品确认逐行展示字段（`source/missingReason/dataVersion/importJobId`）与缺失值的展示措辞 | P1-2 |
+| 3 | P1 | `GET /api/subjects/{id}/visit-sources` | 未封装 | 同上；访视来源需与 visit 历史合并展示，避免两处口径不一致 | P1-2 |
+| 4 | P1 | `GET /api/subjects/{id}/capabilities` | 未封装 | 同上；能力（补录/评估/随访）与后端权限判定要一致，需确认无权限时的降级展示 | P1-2 |
+| 5 | P1 | `GET /api/import-jobs` + `GET /api/import-jobs/{jobId}` | 未封装，导入中心无历史表 | 需补导入历史 UI（列表/详情/失败重试入口）；详情字段（`errorSummary`）展示方式未定 | P1-3 |
+| 6 | P1 | `GET /api/import-jobs/{id}/errors.csv` | 未封装，无「下载错误明细」 | 需 CSV 下载按钮 + 鉴权 fetch（axios blob 与现有 `downloadCsv` 不同），需确认大文件失败提示 | P1-3 |
+| 7 | P1 | `GET /api/quality-checks` | 未封装，质控页仍用旧 `/api/qc/list` | 新分页接口的参数语义（`keyword/from/to`）与旧接口分页行为需后端确认后再切换，避免筛选结果不一致 | P1-6 |
+| 8 | P1 | `PATCH /api/subjects/{subjectId}` | 未封装，档案无编辑入口 | 需补编辑表单（别名/状态）与非法值提示；后端已写审计，前端需展示"已记录审计" | P1-7 |
+| 9 | P1 | `POST /api/subjects` | 未封装，无建档入口 | 需补建档表单；档案编号生成规则（`DEMO-*` 保留）与必填字段需产品确认 | P1-7 |
+| 10 | P1 | `POST /api/subjects/{subjectId}/features` | 未封装，无特征补录 | 需动态字段表单（随 `dataVersion` 变化），需确认缺失值/单位的录入约束 | P1-8 |
+| 11 | P1 | `POST /api/subjects/{id}/observations` | 未封装，无观测补录 | 需补录表单；观测类型、单位、缺失原因字典需产品给出 | P1-8 |
+| 12 | P1 | `POST /api/subjects/{subjectId}/visits` | 未封装，无访视补录 | 需补录表单；访视窗口与量表字段（MMSE/MoCA/CDR-SB）需与后端 `VisitInput` 对齐 | P1-8 |
+| 13 | P1 | `POST /api/subjects/{subjectId}/quality-checks` | 未封装，无「发起质控」 | 需产品确认质控规则触发方式与状态机（PENDING/PASSED/BLOCKED）交互 | P1-8 |
+| 14 | P1 | `GET /api/subjects/{id}/graph-diff?from&to` | 未封装，图谱页无对比入口 | 需设计节点/边 diff 视图与免责声明（"仅比较结构，不证明个体因果变化"），措辞待研究/临床确认 | P1-11 |
+| 15 | P2 | `GET /api/dashboard/summary` | 未封装，大屏仍用三请求聚合 | 指标口径未定：summary 字段（评估复核/高风险/今日随访）与现有大屏四指标语义不同 | P2-2 |
+| 16 | P2 | `PATCH /api/system/models/{version}` | 未封装，系统设置页只读 | 需产品定义模型启用/停用的业务语义与审批流程；当前无权限模型 | P2-6 |
+
+> 已完成/部分完成的 P1 项（不计入上表）：P1-1 取消（`POST /cancel` 已接入任务抽屉）、P1-4 PDF（`/download?format=pdf` 已接入，HTML/JSON 未做）、P1-5 复核历史（`/assessments/{id}/reviews` 已用于患者 360 抽屉，独立时间线页未做）、P1-9（`api/system.js` 已封装 `GET /system/info`，页面仍用构建常量）、P1-10（偏好已完成）、P1-12（`/assessment-tasks/{id}/input` 已用于预测窗口，完整快照视图未做）。
+
+### P1-1 评估任务的「取消 / 提交」（取消已完成，提交待办）
 
 | 项 | 内容 |
 | --- | --- |
@@ -55,6 +80,7 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 | 建议交互 | 任务抽屉对 `PENDING/RUNNING` 状态显示「取消任务」（二次确认 + loading + 失败原因展示）；批量评估面板提供「提交」入口替代同步 create |
 | 验收 | 取消后任务状态变为 `CANCELLED`，列表与抽屉同步；取消失败（已完成）提示原因 |
 | 影响文件 | `views/researcher/TaskList.vue`、`components/doctor/AssessmentPanel.vue` |
+| 状态 | **取消已完成**：任务抽屉对 `PENDING` 显示「取消任务」（二次确认 + loading + 失败原因），实测调用 `POST /assessment-tasks/7/cancel`；**提交未做**（见总清单 #1） |
 
 ### P1-2 档案数据来源与能力展示
 
@@ -74,7 +100,7 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 | 验收 | 刷新页面仍能看到历史任务；错误 CSV 可用 Excel 打开且包含行号与原因 |
 | 影响文件 | `views/researcher/ImportCenter.vue`、`api/imports.js` |
 
-### P1-4 报告多格式导出（HTML / JSON）
+### P1-4 报告多格式导出（HTML / JSON，PDF 已接入）
 
 | 项 | 内容 |
 | --- | --- |
@@ -82,8 +108,9 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 | 建议交互 | 报告页「下载」改为下拉：PDF（默认）/ HTML（可打印预览）/ JSON（研究归档）；保留按角色选择 `audience` |
 | 验收 | 三种格式均能下载且文件名正确；HTML 在浏览器中可读、JSON 可被解析 |
 | 影响文件 | `views/doctor/ReportList.vue`、`api/reports.js` |
+| 状态 | **PDF 已接入**（报告页「下载文本版 PDF」经 fetch 触发 `/download?format=pdf&audience=...`）；HTML/JSON 格式切换未做 |
 
-### P1-5 复核历史时间线
+### P1-5 复核历史时间线（360 抽屉已展示，独立页未做）
 
 | 项 | 内容 |
 | --- | --- |
@@ -91,6 +118,7 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 | 建议交互 | 复核抽屉底部展示时间线：谁在何时做了 `ACKNOWLEDGED / NEEDS_DATA / REJECTED`，以及意见全文 |
 | 验收 | 多次复核的评估能看到完整改判历史；无权限时不加载 |
 | 影响文件 | `views/doctor/ReviewBoard.vue` |
+| 状态 | `/assessments/{id}/reviews` 已封装并用于患者 360 时间线（点击复核显示意见）；复核页独立的完整改判时间线未做 |
 
 ### P1-6 质控搜索与新分页接口
 
@@ -119,7 +147,7 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 | 验收 | 补录的数据能在 `visit-sources`/`feature-sources` 与质控列表中看到，且带 `dataVersion` |
 | 影响文件 | 新增 `components/subject/ObservationDialog.vue`、`VisitDialog.vue`；`views/doctor/PatientList.vue` |
 
-### P1-9 系统设置接运行时信息
+### P1-9 系统设置接运行时信息（API 已封装，页面未接）
 
 | 项 | 内容 |
 | --- | --- |
@@ -127,8 +155,9 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 | 建议交互 | `SystemSettings.vue` 用运行时数据替换 `__APP_VERSION__` 等构建常量；Python 不可用时显示明确状态 |
 | 验收 | 页面显示的版本/提交号与后端实际运行一致；后端不可达时回退为"离线" |
 | 影响文件 | `views/admin/SystemSettings.vue`、新增 `api/system.js` |
+| 状态 | `api/system.js` 已封装 `GET /system/info`；`SystemSettings.vue` 仍使用 `__APP_VERSION__` 构建常量，待接运行时数据 |
 
-### P1-10 用户偏好设置
+### P1-10 用户偏好设置（已完成，2026-11-12）
 
 | 项 | 内容 |
 | --- | --- |
@@ -136,6 +165,7 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 | 建议交互 | 顶栏用户菜单加「偏好」：界面密度、字号、通知开关；保存后本地即时生效并写入后端 |
 | 验收 | 刷新/换设备后偏好保留；非法键值由后端 400 |
 | 影响文件 | `layouts/SidebarLayout.vue`、新增 `api/preferences.js` |
+| 状态 | **已完成**：顶栏用户名 →「用户设置」弹窗（字号/密度/通知），`GET/PATCH /api/me/preferences` 已接，保存后即时生效并写后端 |
 
 ### P1-11 图谱版本对比入口
 
@@ -146,7 +176,7 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 | 验收 | 对比结果与后端返回一致；同一档案不同受试者的评估被后端 400 拒绝时提示清楚 |
 | 影响文件 | `views/doctor/GraphView.vue`、`api/assessments.js` |
 
-### P1-12 任务输入快照查看
+### P1-12 任务输入快照查看（预测窗口已接入）
 
 | 项 | 内容 |
 | --- | --- |
@@ -330,9 +360,9 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 ## 附录 C：建议实施顺序
 
 ### 第一批（纯前端、价值最高）
-1. P1-1 任务取消/提交
+1. P1-1 任务提交（取消已完成）
 2. P1-3 导入历史 + 错误 CSV
-3. P1-5 复核历史时间线
+3. P1-5 复核历史时间线（360 抽屉已有，独立页待做）
 
 ### 第二批（数据可信度）
 4. P1-6 质控搜索与分页迁移
@@ -340,9 +370,9 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 6. P1-7 档案编辑 + P1-8 数据补录
 
 ### 第三批（管理与研究）
-7. P1-9 系统信息、P1-10 用户偏好
-8. P1-11 图谱对比、P1-12 输入快照
-9. P1-4 报告多格式导出
+7. P1-9 系统信息（API 已封装，页面待接）、P1-10 用户偏好（已完成，2026-11-12）
+8. P1-11 图谱对比、P1-12 输入快照（预测窗口已接，完整视图待做）
+9. P1-4 报告多格式导出（PDF 已接，HTML/JSON 待做）
 
 ### 待后端/产品解锁
 - P2-1 最近登录（需 V13 字段）
@@ -357,16 +387,16 @@ P0 核心闭环已 100% 完成，前端不再依赖"手输 ID / 写死文案"：
 
 | 项 | 受影响页面 | 不做的后果 |
 | --- | --- | --- |
-| P1-1 任务取消/提交 | `TaskList`、`AssessmentPanel` | 任务只能等超时，无法主动终止 |
+| P1-1 任务取消/提交 | `TaskList`、`AssessmentPanel` | 取消已接入；提交未做时任务只能等超时 |
 | P1-2 来源/能力 | `PatientList` 抽屉 | 无法回答"这条数据从哪来、为什么缺失" |
 | P1-3 导入历史/错误 CSV | `ImportCenter` | 刷新即丢，错误只能逐行看页面 |
-| P1-4 多格式导出 | `ReportList` | 研究归档缺 HTML/JSON |
-| P1-5 复核时间线 | `ReviewBoard` | 改判历史不可追溯 |
+| P1-4 多格式导出 | `ReportList` | 研究归档缺 HTML/JSON（PDF 已接） |
+| P1-5 复核时间线 | `ReviewBoard` | 改判历史不可追溯（360 抽屉已展示） |
 | P1-6 质控搜索 | `QcList` | 只能按状态翻页找记录 |
 | P1-7 档案编辑 | `PatientList` | 别名/状态只能改数据库 |
 | P1-8 数据补录 | `PatientList` | 缺数据只能重新导入整批 |
-| P1-9 系统信息 | `SystemSettings` | 版本信息是构建期常量 |
-| P1-10 用户偏好 | 全局 | 密度/字号/通知不可调 |
+| P1-9 系统信息 | `SystemSettings` | 版本信息是构建期常量（`api/system.js` 已封装） |
+| P1-10 用户偏好 | 全局 | 已完成：字号/密度/通知可调 |
 | P1-11 图谱对比 | `GraphView` | 研究场景缺前后对比 |
 | P1-12 输入快照 | `TaskList` | 无法解释历史任务用了什么输入 |
 | P2-1 最近登录 | `UserAdmin` | 无法判断账号是否在用 |

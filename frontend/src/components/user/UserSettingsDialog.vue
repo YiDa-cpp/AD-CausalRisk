@@ -11,15 +11,15 @@
     <el-form v-else label-width="96px" class="pref-form">
       <el-form-item label="界面字号">
         <el-radio-group v-model="form.fontSize">
-          <el-radio-button :label="14">标准</el-radio-button>
-          <el-radio-button :label="16">大</el-radio-button>
-          <el-radio-button :label="18">特大</el-radio-button>
+          <el-radio-button :value="14">标准</el-radio-button>
+          <el-radio-button :value="16">大</el-radio-button>
+          <el-radio-button :value="18">特大</el-radio-button>
         </el-radio-group>
       </el-form-item>
       <el-form-item label="界面密度">
         <el-radio-group v-model="form.density">
-          <el-radio-button label="comfortable">舒适</el-radio-button>
-          <el-radio-button label="compact">紧凑</el-radio-button>
+          <el-radio-button value="comfortable">舒适</el-radio-button>
+          <el-radio-button value="compact">紧凑</el-radio-button>
         </el-radio-group>
       </el-form-item>
       <el-form-item label="站内通知">

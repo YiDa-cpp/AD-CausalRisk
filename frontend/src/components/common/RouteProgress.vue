@@ -14,11 +14,13 @@ import { useRouter } from 'vue-router'
 
 /**
  * 顶部路由进度条：路由开始加载时出现，结束后走完并淡出。
- * 与 AppShell 的页面淡入配合，形成"刷新/切页"的加载反馈。
+ * 与 GlobalLoading 一样按需显示：260ms 内完成的切页不出现进度条。
  */
 const router = useRouter()
 const active = ref(false)
 const done = ref(false)
+const SHOW_DELAY_MS = 260
+let showTimer = null
 let hideTimer = null
 
 function start() {
@@ -27,10 +29,21 @@ function start() {
     hideTimer = null
   }
   done.value = false
-  active.value = true
+  if (active.value || showTimer) return
+  showTimer = window.setTimeout(() => {
+    showTimer = null
+    active.value = true
+  }, SHOW_DELAY_MS)
 }
 
 function finish() {
+  if (showTimer) {
+    clearTimeout(showTimer)
+    showTimer = null
+    done.value = false
+    return
+  }
+  if (!active.value) return
   active.value = false
   done.value = true
   hideTimer = window.setTimeout(() => {
@@ -45,6 +58,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (showTimer) clearTimeout(showTimer)
   if (hideTimer) clearTimeout(hideTimer)
 })
 </script>

@@ -227,8 +227,8 @@
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
-            <el-radio-button label="ACTIVE">启用</el-radio-button>
-            <el-radio-button label="DISABLED">停用</el-radio-button>
+            <el-radio-button value="ACTIVE">启用</el-radio-button>
+            <el-radio-button value="DISABLED">停用</el-radio-button>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="显示名">
@@ -245,8 +245,8 @@
         </el-form-item>
         <el-form-item label="数据范围">
           <el-radio-group v-model="form.dataScope">
-            <el-radio-button label="ASSIGNED">授权范围</el-radio-button>
-            <el-radio-button label="ALL">全部</el-radio-button>
+            <el-radio-button value="ASSIGNED">授权范围</el-radio-button>
+            <el-radio-button value="ALL">全部</el-radio-button>
           </el-radio-group>
         </el-form-item>
       </el-form>
