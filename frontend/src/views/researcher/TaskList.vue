@@ -6,6 +6,7 @@
         <el-button :icon="Download" :disabled="items.length === 0" @click="exportCsv">
           导出 CSV
         </el-button>
+        <el-button type="primary" :icon="Promotion" @click="openSubmit">异步提交</el-button>
       </template>
     </PageHeader>
 
@@ -159,6 +160,42 @@
         </div>
       </template>
     </el-drawer>
+
+    <!-- 异步提交：POST /api/assessment-tasks/submit（立即返回任务，后台执行） -->
+    <el-dialog
+      v-model="submitOpen"
+      title="异步提交评估任务"
+      width="460px"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <el-form :model="submitForm" label-width="96px" @submit.prevent>
+        <el-form-item label="受试者 ID" required>
+          <el-input
+            v-model="submitForm.subjectId"
+            placeholder="手输受试者 ID，例如 22（可在档案页地址栏看到）"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="预测窗口" required>
+          <el-input-number
+            v-model="submitForm.window"
+            :min="WINDOW_MIN"
+            :max="WINDOW_MAX"
+            :step="6"
+            style="width: 100%"
+          />
+          <p class="submit-hint">单位：月（{{ WINDOW_MIN }}–{{ WINDOW_MAX }}，默认 {{ WINDOW_DEFAULT }}）。</p>
+        </el-form-item>
+      </el-form>
+      <p class="submit-hint">
+        提交后立即返回任务记录，模型在后台执行；可在列表里刷新查看状态与阶段耗时。
+      </p>
+      <template #footer>
+        <el-button @click="submitOpen = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="doSubmit">提交任务</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -166,7 +203,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Cpu, Download, Refresh, WarningFilled } from '@element-plus/icons-vue'
+import { Cpu, Download, Promotion, Refresh, WarningFilled } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DataCard from '@/components/common/DataCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
@@ -174,7 +211,11 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import {
   cancelAssessmentTask,
   getAssessmentTask,
-  listAssessmentTasks
+  listAssessmentTasks,
+  submitAssessmentTask,
+  WINDOW_DEFAULT,
+  WINDOW_MAX,
+  WINDOW_MIN
 } from '@/api/assessments.js'
 import { downloadCsv } from '@/utils/csv.js'
 import { useTableKeyboard } from '@/composables/useTableKeyboard.js'
@@ -200,6 +241,38 @@ const detail = ref(null)
 const cancelling = ref(false)
 /** 后端只允许取消 PENDING 任务（RUNNING 不可取消） */
 const canCancel = computed(() => detail.value?.status === 'PENDING')
+
+// ---- 异步提交（POST /api/assessment-tasks/submit） ----
+const submitOpen = ref(false)
+const submitting = ref(false)
+const submitForm = ref({ subjectId: '', window: WINDOW_DEFAULT })
+
+function openSubmit() {
+  submitForm.value = { subjectId: '', window: WINDOW_DEFAULT }
+  submitOpen.value = true
+}
+
+async function doSubmit() {
+  const subjectId = Number(submitForm.value.subjectId)
+  if (!Number.isInteger(subjectId) || subjectId <= 0) {
+    ElMessage.warning('请填写有效的受试者 ID（正整数）')
+    return
+  }
+  submitting.value = true
+  try {
+    const task = await submitAssessmentTask({
+      subjectId,
+      predictionWindowMonths: submitForm.value.window
+    })
+    ElMessage.success(`任务 #${task?.taskId ?? '已提交'} 已受理，稍后刷新查看结果`)
+    submitOpen.value = false
+    loadPage(1)
+  } catch {
+    // request.js 已统一提示（400/403 会给出后端消息）
+  } finally {
+    submitting.value = false
+  }
+}
 
 /** 列表请求序号：翻页竞态时只认最新一次响应 */
 let requestSeq = 0
@@ -437,6 +510,13 @@ onMounted(async () => {
   font-weight: 600;
   color: var(--ink);
   font-family: var(--font-display);
+}
+
+.submit-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
 }
 
 .actions {

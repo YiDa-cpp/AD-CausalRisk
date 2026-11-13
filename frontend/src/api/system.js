@@ -21,3 +21,11 @@ export function getMyPreferences() {
 export function saveMyPreferences(patch) {
   return request.patch('/me/preferences', patch)
 }
+
+/**
+ * PATCH /api/system/models/{version} —— 启用 / 停用某个模型版本（仅 ADMIN）。
+ * body：{ enabled: boolean }；返回 { saved: true }。
+ */
+export function updateModelConfig(version, enabled) {
+  return request.patch(`/system/models/${encodeURIComponent(version)}`, { enabled })
+}

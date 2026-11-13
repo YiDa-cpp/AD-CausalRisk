@@ -3,7 +3,7 @@
     <PageHeader
       back
       title="系统设置"
-      subtitle="只读的系统信息与契约版本。修改类配置尚无接口，本页不提供任何写入操作。"
+      subtitle="系统信息、契约版本与模型开关。模型开关是唯一可写配置，会立即影响新提交的评估任务。"
     >
       <template #extra>
         <StatusTag :type="probe.ok ? 'COMPLETED' : 'FAILED'" :label="probe.ok ? '后端在线' : '后端不可达'" />
@@ -33,9 +33,17 @@
             <dt>探测耗时</dt>
             <dd>{{ probe.latencyMs === null ? '—' : `${probe.latencyMs} ms` }}</dd>
           </div>
-          <div class="kv__wide">
+          <div>
             <dt>版本</dt>
-            <dd>接口未提供：契约里没有 /actuator/info 或版本端点，无法读取</dd>
+            <dd>{{ info?.appVersion || '—' }}</dd>
+          </div>
+          <div>
+            <dt>Java</dt>
+            <dd>{{ info?.javaVersion || '—' }}</dd>
+          </div>
+          <div class="kv__wide">
+            <dt>提交</dt>
+            <dd>{{ info?.gitCommit || '—' }}</dd>
           </div>
         </dl>
       </article>
@@ -62,6 +70,44 @@
       </article>
 
       <article class="panel panel--wide">
+        <div class="panel__head">
+          <h2 class="panel__title">模型配置</h2>
+          <el-button text :icon="Refresh" :loading="infoLoading" @click="loadInfo">刷新</el-button>
+        </div>
+        <p class="panel__hint">
+          开关对应 <code>PATCH /api/system/models/{version}</code>。停用后新提交的评估会因模型不可用而失败，
+          已有评估结果与报告不受影响；只能配置数据库里已安装的版本。
+        </p>
+        <el-skeleton v-if="infoLoading && models.length === 0" :rows="3" animated />
+        <el-empty
+          v-else-if="!models.length"
+          :description="infoError || '没有已安装的模型版本'"
+          :image-size="72"
+        />
+        <el-table v-else :data="models" size="small">
+          <el-table-column prop="model_version" label="模型版本" min-width="260" show-overflow-tooltip />
+          <el-table-column label="启用" width="110">
+            <template #default="{ row }">
+              <el-switch
+                :model-value="isEnabled(row)"
+                :loading="togglingVersion === row.model_version"
+                @change="(value) => toggleModel(row, value)"
+              />
+            </template>
+          </el-table-column>
+          <el-table-column label="更新时间" width="190">
+            <template #default="{ row }">{{ formatTime(row.updated_at) }}</template>
+          </el-table-column>
+          <el-table-column label="影响" min-width="180">
+            <template #default="{ row }">
+              <span v-if="isEnabled(row)" class="model-state model-state--on">可创建新评估</span>
+              <span v-else class="model-state model-state--off">仅保留历史结果</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </article>
+
+      <article class="panel panel--wide">
         <h2 class="panel__title">固定的业务规则</h2>
         <ul class="rules">
           <li><strong>预测窗口</strong>6–60 个月，默认 24 个月；超出范围直接 400。</li>
@@ -75,18 +121,20 @@
     </div>
 
     <p class="settings-foot">
-      配置项只读：契约的 22 个操作里没有系统设置/参数管理接口，因此本页不提供保存按钮。
-      需要可配置项时，先在后端补 <code>GET/PATCH /api/system/settings</code> 再扩展本页。
+      模型开关是唯一可写配置（<code>PATCH /api/system/models/{version}</code>），其余字段只读。
+      需要新增可配置项时，先在后端补对应接口再扩展本页。
     </p>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import request from '@/api/request.js'
+import { getSystemInfo, updateModelConfig } from '@/api/system.js'
 
 const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
@@ -119,6 +167,46 @@ const mode = import.meta.env.MODE
 const probing = ref(false)
 const probe = ref({ ok: false, latencyMs: null, message: '未探测' })
 
+// ---- 系统信息（模型配置卡片） ----
+const info = ref(null)
+const infoLoading = ref(false)
+const infoError = ref('')
+const models = computed(() => (Array.isArray(info.value?.models) ? info.value.models : []))
+const togglingVersion = ref('')
+
+/** 后端来自 JdbcTemplate，enabled 可能是 true/false 也可能是 1/0。 */
+function isEnabled(row) {
+  const value = row?.enabled
+  return value === true || value === 1 || value === '1'
+}
+
+async function loadInfo() {
+  infoLoading.value = true
+  infoError.value = ''
+  try {
+    info.value = await getSystemInfo()
+  } catch (problem) {
+    infoError.value = problem?.message || '系统信息读取失败（需要管理员权限）'
+  } finally {
+    infoLoading.value = false
+  }
+}
+
+async function toggleModel(row, value) {
+  const version = row?.model_version
+  if (!version) return
+  togglingVersion.value = version
+  try {
+    await updateModelConfig(version, value)
+    ElMessage.success(`已${value ? '启用' : '停用'} ${version}`)
+  } catch {
+    // request.js 已统一提示；下面重新拉取以恢复真实状态
+  } finally {
+    togglingVersion.value = ''
+    await loadInfo()
+  }
+}
+
 
 
 /** 真实探测：/api/me 需要登录态，能返回就说明后端与安全链都活着。 */
@@ -143,7 +231,10 @@ async function probeBackend() {
   }
 }
 
-onMounted(probeBackend)
+onMounted(() => {
+  probeBackend()
+  loadInfo()
+})
 </script>
 
 <style scoped>
@@ -202,6 +293,30 @@ onMounted(probeBackend)
   font-weight: 700;
   letter-spacing: 0.3px;
   color: var(--ink);
+}
+
+.panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel__head .panel__title {
+  margin-bottom: 0;
+}
+
+.model-state {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.model-state--on {
+  color: #3f7a76;
+}
+
+.model-state--off {
+  color: var(--soft);
 }
 
 .panel__hint {

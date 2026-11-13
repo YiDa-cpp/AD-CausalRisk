@@ -14,6 +14,9 @@
           @keyup.enter="search"
           @clear="search"
         />
+        <el-button v-if="canManageSubject" type="primary" :icon="DocumentAdd" @click="openCreateSubject">
+          新建档案
+        </el-button>
         <el-button :icon="Refresh" @click="load">刷新</el-button>
       </template>
     </PageHeader>
@@ -150,6 +153,32 @@
             {{ formatTime(selected.createdAt) }}
           </el-descriptions-item>
         </el-descriptions>
+
+            <div class="drawer__section drawer__actions">
+              <el-button
+                v-if="canEditSubject"
+                size="small"
+                :icon="EditPen"
+                @click="openEditSubject"
+              >
+                编辑档案
+              </el-button>
+              <el-button
+                size="small"
+                :icon="Share"
+                :disabled="reportLibrary.length < 2"
+                @click="graphDiffOpen = true"
+              >
+                图谱对比
+              </el-button>
+              <span v-if="reportLibrary.length < 2" class="drawer__actions-hint">
+                至少两次评估才能对比图谱
+              </span>
+            </div>
+
+            <div class="drawer__section">
+              <DataProvenancePanel :subject-id="selected.id" />
+            </div>
 
             <div class="drawer__section">
               <AssessmentPanel
@@ -410,6 +439,19 @@
 
           <!-- Tab 4：就诊与随访记录 -->
           <el-tab-pane label="就诊与随访记录" name="records">
+            <!-- 补录写 visit/subject_feature 表，后端要求 ADMIN/RESEARCHER 且对该档案有管理权 -->
+            <div v-if="canManageSubject" class="drawer__section drawer__actions">
+              <el-button size="small" :icon="FirstAidKit" @click="visitDialogOpen = true">
+                补录访视
+              </el-button>
+              <el-button size="small" :icon="DataAnalysis" @click="featureDialogOpen = true">
+                补录特征
+              </el-button>
+              <el-button size="small" :icon="DocumentAdd" @click="observationDialogOpen = true">
+                补录观测
+              </el-button>
+            </div>
+
             <div class="drawer__section">
               <VisitHistory :visits="visits" :loading="detailLoading" />
             </div>
@@ -518,6 +560,42 @@
       :subject-id="selected.id"
       @created="onFollowUpCreated"
     />
+
+    <!-- 新建 / 编辑档案 -->
+    <SubjectFormDialog
+      v-model="subjectFormOpen"
+      :mode="subjectFormMode"
+      :subject="selected"
+      @saved="onSubjectSaved"
+    />
+
+    <!-- 补录访视 / 特征 / 观测 -->
+    <VisitRecordDialog
+      v-if="selected"
+      v-model="visitDialogOpen"
+      :subject-id="selected.id"
+      @saved="onRecordSaved"
+    />
+    <FeatureRecordDialog
+      v-if="selected"
+      v-model="featureDialogOpen"
+      :subject-id="selected.id"
+      @saved="onRecordSaved"
+    />
+    <ObservationRecordDialog
+      v-if="selected"
+      v-model="observationDialogOpen"
+      :subject-id="selected.id"
+      @saved="onRecordSaved"
+    />
+
+    <!-- 图谱对比 -->
+    <GraphDiffDialog
+      v-if="selected"
+      v-model="graphDiffOpen"
+      :subject-id="selected.id"
+      :assessments="reportLibrary"
+    />
   </div>
 </template>
 
@@ -530,10 +608,12 @@ import {
   DataAnalysis,
   Document,
   DocumentAdd,
+  EditPen,
   FirstAidKit,
   Loading,
   Refresh,
   Search,
+  Share,
   Timer,
   User,
   WarningFilled
@@ -546,7 +626,13 @@ import AssessmentPanel from '@/components/doctor/AssessmentPanel.vue'
 import VisitHistory from '@/components/doctor/VisitHistory.vue'
 import CausalGraph from '@/components/charts/CausalGraph.vue'
 import FollowUpDialog from '@/components/followup/FollowUpDialog.vue'
-import { getSubjectDetail, listSubjects } from '@/api/subjects.js'
+import SubjectFormDialog from '@/components/subject/SubjectFormDialog.vue'
+import VisitRecordDialog from '@/components/subject/VisitRecordDialog.vue'
+import FeatureRecordDialog from '@/components/subject/FeatureRecordDialog.vue'
+import ObservationRecordDialog from '@/components/subject/ObservationRecordDialog.vue'
+import DataProvenancePanel from '@/components/subject/DataProvenancePanel.vue'
+import GraphDiffDialog from '@/components/subject/GraphDiffDialog.vue'
+import { getSubjectCapabilities, getSubjectDetail, listSubjects } from '@/api/subjects.js'
 import { listFollowUps } from '@/api/followups.js'
 import {
   getAssessment,
@@ -580,6 +666,58 @@ const detailLoading = ref(false)
 const followUps = ref([])
 const followUpLoading = ref(false)
 const followUpDialogOpen = ref(false)
+
+// ---- 档案维护：新建 / 编辑 / 补录 / 图谱对比 ----
+const subjectFormOpen = ref(false)
+const subjectFormMode = ref('create')
+const visitDialogOpen = ref(false)
+const featureDialogOpen = ref(false)
+const observationDialogOpen = ref(false)
+const graphDiffOpen = ref(false)
+const subjectCapabilities = ref(null)
+
+/**
+ * 建档与新建/补录只对 ADMIN / RESEARCHER 开放（后端 SubjectAccessPolicy.canCreate）。
+ * 编辑还允许持有 MANAGE 授权的医生，因此以 capabilities.manage 为准。
+ */
+const canManageSubject = computed(() => userStore.hasRole(['ADMIN', 'RESEARCHER']))
+const canEditSubject = computed(
+  () => canManageSubject.value || subjectCapabilities.value?.manage === true
+)
+
+async function loadSubjectCapabilities(subjectId) {
+  subjectCapabilities.value = null
+  if (!subjectId) return
+  try {
+    subjectCapabilities.value = await getSubjectCapabilities(subjectId)
+  } catch {
+    // 能力探测失败时按最小权限处理（隐藏编辑入口）
+  }
+}
+
+function openCreateSubject() {
+  subjectFormMode.value = 'create'
+  subjectFormOpen.value = true
+}
+
+function openEditSubject() {
+  if (!selected.value) return
+  subjectFormMode.value = 'edit'
+  subjectFormOpen.value = true
+}
+
+/** 新建或编辑成功后刷新列表；编辑时同步抽屉里的档案信息。 */
+async function onSubjectSaved({ mode, subject }) {
+  if (mode === 'edit' && subject) {
+    selected.value = { ...selected.value, ...subject }
+  }
+  await load()
+}
+
+/** 补录成功：重新拉一次 360 数据（访视、随访、评估）与来源面板 */
+function onRecordSaved() {
+  loadTimeline()
+}
 
 // ---- 患者 360° 时间线 ----
 const timeline = ref([])
@@ -721,6 +859,7 @@ function openDrawer(row) {
   activeEvent.value = null
   assessmentDetail.value = null
   loadTimeline()
+  loadSubjectCapabilities(row?.id)
   // 打开哪个档案就写到 URL：从报告/图谱返回时可以直接恢复抽屉
   if (row?.id) router.replace({ query: { ...route.query, subjectId: String(row.id) } })
 }
@@ -741,7 +880,14 @@ useEscapeToClose(
     drawerOpen.value = false
   },
   // 抽屉里开着「新建随访」对话框或报告预览时，Esc 只关上层，不关底层档案
-  () => followUpDialogOpen.value || previewOpen.value
+  () =>
+    followUpDialogOpen.value ||
+    previewOpen.value ||
+    subjectFormOpen.value ||
+    visitDialogOpen.value ||
+    featureDialogOpen.value ||
+    observationDialogOpen.value ||
+    graphDiffOpen.value
 )
 
 /** 抽屉里的随访：GET /api/subjects/{subjectId}/follow-ups */
@@ -1265,6 +1411,18 @@ onBeforeUnmount(() => {
 
 .drawer__section {
   margin-top: 16px;
+}
+
+.drawer__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.drawer__actions-hint {
+  font-size: 12px;
+  color: var(--soft);
 }
 
 /* ---- 患者 360° 时间线 ---- */

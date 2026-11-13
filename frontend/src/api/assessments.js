@@ -45,6 +45,29 @@ export function createAssessmentTask({
   )
 }
 
+/**
+ * POST /api/assessment-tasks/submit —— 异步提交（立即返回任务记录，后台执行）。
+ *
+ * 请求体与 POST /api/assessment-tasks 相同，同样要求 Idempotency-Key；
+ * 区别只在语义：submit 明确表示"接受后异步处理"。
+ */
+export function submitAssessmentTask({
+  subjectId,
+  modelVersion = MODEL_VERSION,
+  predictionWindowMonths = WINDOW_DEFAULT,
+  idempotencyKey
+}) {
+  return request.post(
+    '/assessment-tasks/submit',
+    {
+      subjectId,
+      modelVersion,
+      predictionWindowMonths
+    },
+    { headers: { 'Idempotency-Key': idempotencyKey || newIdempotencyKey() } }
+  )
+}
+
 /** GET /api/assessment-tasks/{taskId} —— 轮询用；返回 AssessmentTask。 */
 export function getAssessmentTask(taskId) {
   return request.get(`/assessment-tasks/${taskId}`)
