@@ -2,7 +2,7 @@
   <div class="research-home">
     <PageHeader
       title="研究员工作台"
-      subtitle="选择一条工作流开始：先把数据导进来，再对队列发起批量评估。"
+      subtitle="选择一条工作流开始：先把数据导进来，再对受试者发起研究模型评估。"
     >
       <template #extra>
         <el-button :icon="Refresh" @click="refresh">刷新</el-button>
@@ -40,7 +40,7 @@
     </div>
 
     <p class="research-home__foot">
-      数据导入与批量评估需要研究员角色（ADMIN 亦可）；单条档案的发起与复核在「受试者档案」抽屉内完成。
+      数据导入与研究模型评估需要研究员角色（ADMIN 亦可）；单条档案的评估提交与结果回读在「受试者档案」抽屉或「评估任务」页完成。
     </p>
   </div>
 </template>
@@ -65,9 +65,9 @@ const cards = [
   },
   {
     key: 'subjects',
-    title: '批量评估',
-    description: '在受试者档案里勾选多人，一次发起风险评估。',
-    points: ['多选后点「批量发起评估」', '右上角进度面板实时显示完成情况'],
+    title: '研究模型评估',
+    description: '在受试者档案抽屉里选择已登记快照，提交或回读研究模型评估。',
+    points: ['模型固定为已训练的七变量逻辑回归', '结果标注 24 个月 CIF 与解释边界'],
     cta: '去受试者档案',
     path: '/subjects',
     icon: User
@@ -84,8 +84,8 @@ const cards = [
   {
     key: 'tasks',
     title: '评估任务',
-    description: '按任务 ID 查看四个阶段的耗时与结果。',
-    points: ['数据融合 / 因果图谱 / 预警模型 / 个体解释', '可跳转到报告或复核页'],
+    description: '查看旧规则评估历史；研究模型评估从这里提交或回读。',
+    points: ['历史任务可查看输入、结果并取消', '研究评估按已登记快照读取或提交'],
     cta: '去评估任务',
     path: '/tasks',
     icon: Cpu

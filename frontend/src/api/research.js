@@ -19,24 +19,40 @@ export function getResearchReport(key) {
 /**
  * 研究表格评估任务（ResearchTableAssessmentController，V13 新增）。
  *
+ * GET /api/research/table-assessment-tasks/snapshots?subjectId={id}
+ *   → [{ snapshotId, taskId }]
+ *   只返回当前用户获准评估、已登记为 CONSTRUCTED_VALIDATION + trained-seven-logistic
+ *   的冻结快照；taskId 非空说明该快照已有任务，可直接回读，避免换幂等键重复提交。
+ *
  * POST /api/research/table-assessment-tasks
  *   Header: Idempotency-Key（必填，1–100 字符）
- *   Body:   { snapshotId }（正整数，来自受控登记流程写入的 research_table_snapshot）
+ *   Body:   { snapshotId }（正整数）
  *   返回 ResearchTableTask：{ taskId, snapshotId, subjectId, runId, status, errorCode,
  *   result, createdAt, updatedAt }；status ∈ COMPLETED / BLOCKED / FAILED / OUTCOME_UNKNOWN。
  *
- * 注意：当前后端没有"快照列表/登记"的公开接口，snapshotId 只能由受控登记流程产生，
- * 因此前端暂不提供提交入口；此方法先作为联调/后续页面接入的请求封装。
+ * GET /api/research/table-assessment-tasks/{id} —— 读取已持久化的研究任务与结果。
+ *
+ * 旧规则通道 POST /api/assessment-tasks 与 /submit 已退役（默认 503），页面不再调用。
  */
+export function listResearchSnapshots(subjectId) {
+  return request.get('/research/table-assessment-tasks/snapshots', {
+    params: { subjectId: Number(subjectId) },
+    // 快照接口的 403/404/503 由页面翻译成具体提示，不再弹全局 toast
+    silent: true
+  })
+}
+
 export function submitResearchTableTask({ snapshotId, idempotencyKey }) {
   return request.post(
     '/research/table-assessment-tasks',
     { snapshotId: Number(snapshotId) },
-    { headers: { 'Idempotency-Key': idempotencyKey || newIdempotencyKey() } }
+    {
+      headers: { 'Idempotency-Key': idempotencyKey || newIdempotencyKey() },
+      silent: true
+    }
   )
 }
 
-/** GET /api/research/table-assessment-tasks/{id} —— 读取已持久化的研究任务与结果。 */
 export function getResearchTableTask(taskId) {
-  return request.get(`/research/table-assessment-tasks/${taskId}`)
+  return request.get(`/research/table-assessment-tasks/${taskId}`, { silent: true })
 }

@@ -31,6 +31,8 @@ npm run build
 
 旧 `POST /api/assessment-tasks` 和 `/submit` 已退出新评估。历史报告按原版本读取，训练模型的结果在原快照上回读。请求与响应字段以 [Java OpenAPI](../contracts/java-business.target.openapi.json) 为准。
 
+研究证据页的「研究表格评估」和受试者档案抽屉共用 `ResearchAssessmentPanel`：正常显示快照下拉；快照列表接口返回 404/405/501 时自动回退到手输快照 ID；列表或提交返回 503 时提示“当前未配置研究宿主，请切换为课程合成演示模式或联系管理员。”。旧批量评估和异步提交入口已移除，纯 DOCTOR 账号不再显示研究评估表单。
+
 ## 浏览器检查
 
 先在 5199 启动 Vite，再按需要运行以下检查。角色和任务脚本默认使用本地 Chrome，图谱脚本默认使用 Edge；可用 `E2E_CHROME` 指定浏览器。

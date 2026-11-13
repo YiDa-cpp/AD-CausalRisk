@@ -1,16 +1,10 @@
 import request from './request.js'
 
-/** 契约里 AssessmentCreate.modelVersion 是常量。 */
-export const MODEL_VERSION = 'deepagent-causal-warning-v1'
-export const WINDOW_MIN = 6
-export const WINDOW_MAX = 60
-export const WINDOW_DEFAULT = 24
-
 /**
  * 生成一次幂等键。
  *
  * 幂等键的语义是"这一次业务意图"，不是"这一次网络请求"：
- *  - 用户点一次「发起风险预测」→ 生成一次；
+ *  - 用户点一次「提交研究评估」→ 生成一次；
  *  - 超时重试、点「重新发起」→ 必须复用同一个键，后端才不会重复建任务；
  *  - 成功出结果（或换受试者）后才换新键，表示下一次是全新的评估。
  * 所以调用方应当显式传入并自己持有这个值，而不是让这里每次随机生成。
@@ -22,53 +16,9 @@ export function newIdempotencyKey() {
 }
 
 /**
- * POST /api/assessment-tasks
- *
- * @param {object}  options
- * @param {number}  options.subjectId
- * @param {number} [options.predictionWindowMonths]
- * @param {string} [options.idempotencyKey] 复用同一键 = 同一次意图；缺省时新建一个。
+ * GET /api/assessment-tasks/{taskId} —— 轮询用；返回 AssessmentTask。
+ * 旧规则通道（POST /api/assessment-tasks 与 /submit）已退役，前端不再提供创建入口。
  */
-export function createAssessmentTask({
-  subjectId,
-  predictionWindowMonths = WINDOW_DEFAULT,
-  idempotencyKey
-}) {
-  return request.post(
-    '/assessment-tasks',
-    {
-      subjectId,
-      modelVersion: MODEL_VERSION,
-      predictionWindowMonths
-    },
-    { headers: { 'Idempotency-Key': idempotencyKey || newIdempotencyKey() } }
-  )
-}
-
-/**
- * POST /api/assessment-tasks/submit —— 异步提交（立即返回任务记录，后台执行）。
- *
- * 请求体与 POST /api/assessment-tasks 相同，同样要求 Idempotency-Key；
- * 区别只在语义：submit 明确表示"接受后异步处理"。
- */
-export function submitAssessmentTask({
-  subjectId,
-  modelVersion = MODEL_VERSION,
-  predictionWindowMonths = WINDOW_DEFAULT,
-  idempotencyKey
-}) {
-  return request.post(
-    '/assessment-tasks/submit',
-    {
-      subjectId,
-      modelVersion,
-      predictionWindowMonths
-    },
-    { headers: { 'Idempotency-Key': idempotencyKey || newIdempotencyKey() } }
-  )
-}
-
-/** GET /api/assessment-tasks/{taskId} —— 轮询用；返回 AssessmentTask。 */
 export function getAssessmentTask(taskId) {
   return request.get(`/assessment-tasks/${taskId}`)
 }

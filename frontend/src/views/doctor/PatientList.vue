@@ -52,22 +52,6 @@
       />
 
       <template v-else>
-        <!-- 研究员批量评估：勾选后一次发起 -->
-        <div v-if="canBatch" class="toolbar">
-          <span class="toolbar__hint">
-            已选 {{ selectedRows.length }} 位受试者
-          </span>
-          <el-button
-            type="primary"
-            :disabled="selectedRows.length === 0 || batch.running"
-            :loading="batch.running"
-            @click="startBatch"
-          >
-            批量发起评估
-          </el-button>
-          <el-button v-if="batch.running" text @click="batch.visible = true">查看进度</el-button>
-        </div>
-
         <div class="table-wrap">
           <el-table
             :data="items"
@@ -76,9 +60,7 @@
             highlight-current-row
             @row-click="openDrawer"
             @keydown.enter="onRowKeydown"
-            @selection-change="onSelectionChange"
           >
-            <el-table-column v-if="canBatch" type="selection" width="46" />
             <el-table-column prop="subjectCode" label="档案编号" min-width="160" />
             <el-table-column prop="alias" label="别名" min-width="140" />
             <el-table-column label="状态" width="120">
@@ -191,7 +173,6 @@
             <div class="drawer__section">
               <AssessmentPanel
                 :subject-id="selected.id"
-                @reviewed="onReviewed"
                 @completed="onAssessmentCompleted"
               />
             </div>
@@ -661,12 +642,10 @@ import {
 import { useUserStore } from '@/stores/user.js'
 import { useTableKeyboard } from '@/composables/useTableKeyboard.js'
 import { useEscapeToClose } from '@/composables/useEscapeToClose.js'
-import { useBatchAssessmentStore } from '@/stores/batch.js'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const batch = useBatchAssessmentStore()
 
 const items = ref([])
 const total = ref(0)
@@ -803,21 +782,6 @@ const followUpSummaryText = computed(() => {
     next?.purpose ? `（${next.purpose}）` : ''
   }`
 })
-
-/** 只有研究员需要批量评估：表格才显示多选列与批量工具条。 */
-const canBatch = computed(() => userStore.primaryRole === 'RESEARCHER')
-const selectedRows = ref([])
-
-function onSelectionChange(rows) {
-  selectedRows.value = rows
-}
-
-function startBatch() {
-  if (!canBatch.value || selectedRows.value.length === 0) return
-  const ids = selectedRows.value.map((row) => row.id)
-  batch.start(ids)
-  ElMessage.success(`已发起 ${ids.length} 个评估任务，进度见右上角面板`)
-}
 
 /** 首次加载 = 还没有任何数据时的加载，只有这种状态才显示骨架屏。 */
 const firstLoading = computed(() => loading.value && items.value.length === 0 && !error.value)
@@ -1238,15 +1202,9 @@ async function openPreview(item) {
   }
 }
 
-/** 发起评估完成：切到报告库并刷新列表。 */
-function onAssessmentCompleted() {
-  drawerTab.value = 'reports'
-  loadTimeline()
-}
-
-/** 复核成功：刷新列表与时间线，保证状态一致。 */
-function onReviewed() {
-  load()
+/** 研究模型评估完成：刷新时间线，结果保留在评估卡片内。 */
+function onAssessmentCompleted(task) {
+  ElMessage.success(`研究任务 #${task?.taskId ?? ''} 已完成`)
   loadTimeline()
 }
 

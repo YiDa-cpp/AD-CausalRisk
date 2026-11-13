@@ -1,12 +1,14 @@
 <template>
   <div class="task-page">
-    <PageHeader back title="评估任务" subtitle="按时间倒序展示评估任务历史；点击任意一行查看阶段耗时。">
+    <PageHeader back title="评估任务" subtitle="按时间倒序展示旧规则评估任务历史；研究模型评估在独立入口提交并回读。">
       <template #extra>
         <el-button :icon="Refresh" :loading="loading" @click="loadPage(page)">刷新</el-button>
         <el-button :icon="Download" :disabled="items.length === 0" @click="exportCsv">
           导出 CSV
         </el-button>
-        <el-button type="primary" :icon="Promotion" @click="openSubmit">异步提交</el-button>
+        <el-button v-if="canResearch" type="primary" :icon="Promotion" @click="openSubmit">
+          研究模型评估
+        </el-button>
       </template>
     </PageHeader>
 
@@ -46,7 +48,7 @@
         :description="
           statusFilter
             ? '换一个状态筛选，或清空筛选查看全部任务。'
-            : '在受试者档案里发起评估后，任务历史会出现在这里。'
+            : '旧规则评估已停用；研究模型评估请使用右上角入口，或在受试者档案中发起。'
         "
       />
 
@@ -161,39 +163,34 @@
       </template>
     </el-drawer>
 
-    <!-- 异步提交：POST /api/assessment-tasks/submit（立即返回任务，后台执行） -->
+    <!-- 研究模型评估：POST /api/research/table-assessment-tasks（同步返回并落库） -->
     <el-dialog
       v-model="submitOpen"
-      title="异步提交评估任务"
-      width="460px"
+      title="研究模型评估"
+      width="560px"
       :close-on-click-modal="false"
       destroy-on-close
     >
-      <el-form :model="submitForm" label-width="96px" @submit.prevent>
+      <el-form label-width="96px" @submit.prevent>
         <el-form-item label="受试者 ID" required>
           <el-input
-            v-model="submitForm.subjectId"
-            placeholder="手输受试者 ID，例如 22（可在档案页地址栏看到）"
+            v-model="submitSubjectId"
+            placeholder="输入受试者 ID，例如 22（可在档案页地址栏看到）"
             clearable
           />
         </el-form-item>
-        <el-form-item label="预测窗口" required>
-          <el-input-number
-            v-model="submitForm.window"
-            :min="WINDOW_MIN"
-            :max="WINDOW_MAX"
-            :step="6"
-            style="width: 100%"
-          />
-          <p class="submit-hint">单位：月（{{ WINDOW_MIN }}–{{ WINDOW_MAX }}，默认 {{ WINDOW_DEFAULT }}）。</p>
-        </el-form-item>
       </el-form>
       <p class="submit-hint">
-        提交后立即返回任务记录，模型在后台执行；可在列表里刷新查看状态与阶段耗时。
+        研究评估任务不进入旧规则任务列表；提交与回读都在下方卡片内完成。旧规则评分通道已停用。
       </p>
+      <ResearchAssessmentPanel
+        v-if="validSubmitSubjectId"
+        :subject-id="submitSubjectId"
+        @completed="onResearchCompleted"
+      />
+      <el-empty v-else description="先输入受试者 ID" :image-size="72" />
       <template #footer>
-        <el-button @click="submitOpen = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="doSubmit">提交任务</el-button>
+        <el-button @click="submitOpen = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>
@@ -208,21 +205,16 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import DataCard from '@/components/common/DataCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import {
-  cancelAssessmentTask,
-  getAssessmentTask,
-  listAssessmentTasks,
-  submitAssessmentTask,
-  WINDOW_DEFAULT,
-  WINDOW_MAX,
-  WINDOW_MIN
-} from '@/api/assessments.js'
+import ResearchAssessmentPanel from '@/components/assessment/ResearchAssessmentPanel.vue'
+import { cancelAssessmentTask, getAssessmentTask, listAssessmentTasks } from '@/api/assessments.js'
 import { downloadCsv } from '@/utils/csv.js'
 import { useTableKeyboard } from '@/composables/useTableKeyboard.js'
 import { useEscapeToClose } from '@/composables/useEscapeToClose.js'
+import { useUserStore } from '@/stores/user.js'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
 const page = ref(1)
 const pageSize = ref(20)
@@ -242,36 +234,22 @@ const cancelling = ref(false)
 /** 后端只允许取消 PENDING 任务（RUNNING 不可取消） */
 const canCancel = computed(() => detail.value?.status === 'PENDING')
 
-// ---- 异步提交（POST /api/assessment-tasks/submit） ----
+// ---- 研究模型评估（POST /api/research/table-assessment-tasks） ----
+const canResearch = computed(() => userStore.hasRole(['ADMIN', 'RESEARCHER']))
 const submitOpen = ref(false)
-const submitting = ref(false)
-const submitForm = ref({ subjectId: '', window: WINDOW_DEFAULT })
+const submitSubjectId = ref('')
+const validSubmitSubjectId = computed(() => {
+  const value = Number(submitSubjectId.value)
+  return Number.isInteger(value) && value > 0
+})
 
 function openSubmit() {
-  submitForm.value = { subjectId: '', window: WINDOW_DEFAULT }
+  submitSubjectId.value = ''
   submitOpen.value = true
 }
 
-async function doSubmit() {
-  const subjectId = Number(submitForm.value.subjectId)
-  if (!Number.isInteger(subjectId) || subjectId <= 0) {
-    ElMessage.warning('请填写有效的受试者 ID（正整数）')
-    return
-  }
-  submitting.value = true
-  try {
-    const task = await submitAssessmentTask({
-      subjectId,
-      predictionWindowMonths: submitForm.value.window
-    })
-    ElMessage.success(`任务 #${task?.taskId ?? '已提交'} 已受理，稍后刷新查看结果`)
-    submitOpen.value = false
-    loadPage(1)
-  } catch {
-    // request.js 已统一提示（400/403 会给出后端消息）
-  } finally {
-    submitting.value = false
-  }
+function onResearchCompleted(task) {
+  ElMessage.success(`研究任务 #${task?.taskId ?? ''} 已完成`)
 }
 
 /** 列表请求序号：翻页竞态时只认最新一次响应 */
