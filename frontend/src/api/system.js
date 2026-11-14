@@ -29,3 +29,45 @@ export function saveMyPreferences(patch) {
 export function updateModelConfig(version, enabled) {
   return request.patch(`/system/models/${encodeURIComponent(version)}`, { enabled })
 }
+
+/**
+ * GET /api/system/research-host —— 研究宿主地址、超时、启用状态（Token 不回传）。
+ */
+export function getResearchHost() {
+  return request.get('/system/research-host')
+}
+
+/**
+ * PUT /api/system/research-host —— 更新研究宿主；bearerToken 留空表示保留原 Token。
+ */
+export function saveResearchHost(payload) {
+  return request.put('/system/research-host', payload)
+}
+
+/**
+ * GET /api/system/assessment-policy —— 旧规则评估通道（test-rule-enabled）当前状态。
+ */
+export function getAssessmentPolicy() {
+  return request.get('/system/assessment-policy')
+}
+
+/**
+ * PUT /api/system/assessment-policy —— 开启 / 关闭旧规则评估通道。
+ */
+export function saveAssessmentPolicy(testRuleEnabled) {
+  return request.put('/system/assessment-policy', { testRuleEnabled })
+}
+
+/**
+ * GET /api/system/retention —— 审计日志保留天数。
+ */
+export function getRetentionPolicy() {
+  return request.get('/system/retention')
+}
+
+/**
+ * PUT /api/system/retention —— 修改审计日志保留天数（30–3650）。
+ */
+export function saveRetentionPolicy(auditLogDays) {
+  return request.put('/system/retention', { auditLogDays })
+}

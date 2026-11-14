@@ -7375,6 +7375,577 @@
           }
         }
       }
+    },
+    "/api/system/research-host": {
+      "get": {
+        "summary": "管理员读取研究宿主配置；不返回 Bearer Token 明文",
+        "operationId": "getApiSystemResearchHost",
+        "x-implementation-state": "IMPLEMENTED_SYNTHETIC_LOCAL_VALIDATION",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SystemResearchHost"
+                    },
+                    "errorCode": {
+                      "type": "null"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "errorCode",
+                    "traceId",
+                    "timestamp"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数/业务失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无权限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
+      },
+      "put": {
+        "summary": "管理员更新研究宿主地址、Token、超时与启用状态；Token 留空表示保留",
+        "operationId": "putApiSystemResearchHost",
+        "x-implementation-state": "IMPLEMENTED_SYNTHETIC_LOCAL_VALIDATION",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SystemResearchHost"
+                    },
+                    "errorCode": {
+                      "type": "null"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "errorCode",
+                    "traceId",
+                    "timestamp"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数/业务失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无权限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "baseUrl": {
+                    "type": "string"
+                  },
+                  "bearerToken": {
+                    "type": "string"
+                  },
+                  "readTimeoutSeconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 600
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/assessment-policy": {
+      "get": {
+        "summary": "管理员读取旧规则评估通道状态",
+        "operationId": "getApiSystemAssessmentPolicy",
+        "x-implementation-state": "IMPLEMENTED_SYNTHETIC_LOCAL_VALIDATION",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SystemAssessmentPolicy"
+                    },
+                    "errorCode": {
+                      "type": "null"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "errorCode",
+                    "traceId",
+                    "timestamp"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数/业务失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无权限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
+      },
+      "put": {
+        "summary": "管理员开启或关闭旧规则评估通道",
+        "operationId": "putApiSystemAssessmentPolicy",
+        "x-implementation-state": "IMPLEMENTED_SYNTHETIC_LOCAL_VALIDATION",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SystemAssessmentPolicy"
+                    },
+                    "errorCode": {
+                      "type": "null"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "errorCode",
+                    "traceId",
+                    "timestamp"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数/业务失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无权限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "testRuleEnabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "testRuleEnabled"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/retention": {
+      "get": {
+        "summary": "管理员读取审计日志保留策略",
+        "operationId": "getApiSystemRetention",
+        "x-implementation-state": "IMPLEMENTED_SYNTHETIC_LOCAL_VALIDATION",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SystemRetentionPolicy"
+                    },
+                    "errorCode": {
+                      "type": "null"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "errorCode",
+                    "traceId",
+                    "timestamp"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数/业务失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无权限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
+      },
+      "put": {
+        "summary": "管理员修改审计日志保留天数（30-3650）",
+        "operationId": "putApiSystemRetention",
+        "x-implementation-state": "IMPLEMENTED_SYNTHETIC_LOCAL_VALIDATION",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SystemRetentionPolicy"
+                    },
+                    "errorCode": {
+                      "type": "null"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "errorCode",
+                    "traceId",
+                    "timestamp"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数/业务失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无权限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "auditLogDays": {
+                    "type": "integer",
+                    "minimum": 30,
+                    "maximum": 3650
+                  }
+                },
+                "required": [
+                  "auditLogDays"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10252,6 +10823,110 @@
         ],
         "additionalProperties": false,
         "description": "Captured candidate request, including raw invalid numeric inputs if the agent rejected validation. This is audit data, not a declaration of valid Python execution input."
+      },
+      "SystemResearchHost": {
+        "type": "object",
+        "properties": {
+          "baseUrl": {
+            "type": "string"
+          },
+          "bearerTokenConfigured": {
+            "type": "boolean"
+          },
+          "readTimeoutSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 600
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedBy": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        },
+        "required": [
+          "baseUrl",
+          "bearerTokenConfigured",
+          "readTimeoutSeconds",
+          "enabled",
+          "configured",
+          "updatedAt",
+          "updatedBy"
+        ],
+        "additionalProperties": false
+      },
+      "SystemAssessmentPolicy": {
+        "type": "object",
+        "properties": {
+          "testRuleEnabled": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedBy": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        },
+        "required": [
+          "testRuleEnabled",
+          "updatedAt",
+          "updatedBy"
+        ],
+        "additionalProperties": false
+      },
+      "SystemRetentionPolicy": {
+        "type": "object",
+        "properties": {
+          "auditLogDays": {
+            "type": "integer",
+            "minimum": 30,
+            "maximum": 3650
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedBy": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        },
+        "required": [
+          "auditLogDays",
+          "updatedAt",
+          "updatedBy"
+        ],
+        "additionalProperties": false
       }
     },
     "securitySchemes": {
